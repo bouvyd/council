@@ -22,6 +22,7 @@ type AppStore = {
   presence: UserIdentity[];
   messages: ChatMessage[];
   typingBySessionId: Record<string, boolean>;
+  activeReplyToMessageId: string | null;
   draft: string;
   error: string | null;
   submitting: boolean;
@@ -30,6 +31,8 @@ type AppStore = {
   setRouteName: (value: string) => void;
   setRoomIdInput: (value: string) => void;
   setDraft: (value: string) => void;
+  setActiveReplyToMessageId: (value: string | null) => void;
+  clearActiveReplyToMessageId: () => void;
   setError: (value: string | null) => void;
   setSubmitting: (value: boolean) => void;
   setIsNameModalOpen: (value: boolean) => void;
@@ -66,6 +69,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   presence: [],
   messages: [],
   typingBySessionId: {},
+  activeReplyToMessageId: null,
   draft: "",
   error: null,
   submitting: false,
@@ -74,6 +78,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setRouteName: (value) => set({ routeName: value }),
   setRoomIdInput: (value) => set({ roomIdInput: value }),
   setDraft: (value) => set({ draft: value }),
+  setActiveReplyToMessageId: (value) => set({ activeReplyToMessageId: value }),
+  clearActiveReplyToMessageId: () => set({ activeReplyToMessageId: null }),
   setError: (value) => set({ error: value }),
   setSubmitting: (value) => set({ submitting: value }),
   setIsNameModalOpen: (value) => set({ isNameModalOpen: value }),
@@ -157,6 +163,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       presenceRoomId: joined.roomId,
       messages: [],
       typingBySessionId: {},
+      activeReplyToMessageId: null,
       error: null,
       submitting: false,
     });
@@ -171,6 +178,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       presence: [],
       messages: [],
       typingBySessionId: {},
+      activeReplyToMessageId: null,
       draft: "",
       error: null,
       submitting: false,

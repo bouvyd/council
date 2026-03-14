@@ -178,6 +178,7 @@ export function registerSocketHandlers(io: TypedIO, rooms: Map<string, RoomState
         text,
         createdAt: new Date().toISOString(),
         clientMessageId: payload.clientMessageId,
+        replyToMessageId: payload.replyToMessageId?.trim() || undefined,
         author: user,
       };
 

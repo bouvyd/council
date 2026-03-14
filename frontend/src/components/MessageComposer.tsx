@@ -3,11 +3,20 @@ import type { FormEvent, KeyboardEvent } from "react";
 type MessageComposerProps = {
   draft: string;
   submitting: boolean;
+  replyPreview: string | null;
   onDraftChange: (value: string) => void;
+  onClearReply: () => void;
   onSend: () => void;
 };
 
-export function MessageComposer({ draft, submitting, onDraftChange, onSend }: MessageComposerProps) {
+export function MessageComposer({
+  draft,
+  submitting,
+  replyPreview,
+  onDraftChange,
+  onClearReply,
+  onSend,
+}: MessageComposerProps) {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submitting || !draft.trim()) {
@@ -33,6 +42,15 @@ export function MessageComposer({ draft, submitting, onDraftChange, onSend }: Me
 
   return (
     <form className="composer-row" onSubmit={handleSubmit}>
+      {replyPreview ? (
+        <div className="composer-reply-banner">
+          <span>replying to: {replyPreview}</span>
+          <button className="composer-reply-clear" type="button" onClick={onClearReply}>
+            x
+          </button>
+        </div>
+      ) : null}
+
       <label className="sr-only" htmlFor="message-input">
         Message
       </label>

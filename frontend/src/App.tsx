@@ -27,6 +27,7 @@ function AppShell() {
     presence,
     messages,
     typingBySessionId,
+    activeReplyToMessageId,
     draft,
     error,
     submitting,
@@ -34,6 +35,8 @@ function AppShell() {
     setRouteName,
     setRoomIdInput,
     setDraft,
+    setActiveReplyToMessageId,
+    clearActiveReplyToMessageId,
     setError,
     setSubmitting,
     setPendingJoinRoomId,
@@ -251,15 +254,25 @@ function AppShell() {
     clearTypingIdleTimer();
     emitTyping(false);
 
-    socket.emit("message:send", { roomId: currentRoomId, text, clientMessageId }, (result) => {
-      if (!result.ok) {
-        setError(result.error);
-      } else {
-        setDraft("");
-      }
+    socket.emit(
+      "message:send",
+      {
+        roomId: currentRoomId,
+        text,
+        clientMessageId,
+        replyToMessageId: activeReplyToMessageId ?? undefined,
+      },
+      (result) => {
+        if (!result.ok) {
+          setError(result.error);
+        } else {
+          setDraft("");
+          clearActiveReplyToMessageId();
+        }
 
-      setSubmitting(false);
-    });
+        setSubmitting(false);
+      },
+    );
   };
 
   const handleDraftChange = (value: string) => {
@@ -305,9 +318,12 @@ function AppShell() {
             presence={presence}
             typingBySessionId={typingBySessionId}
             messages={messages}
+            activeReplyToMessageId={activeReplyToMessageId}
             draft={draft}
             submitting={submitting}
             onDraftChange={handleDraftChange}
+            onSelectReply={setActiveReplyToMessageId}
+            onClearReply={clearActiveReplyToMessageId}
             onSendMessage={sendMessage}
           />
         )}

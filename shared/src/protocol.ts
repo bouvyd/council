@@ -36,6 +36,7 @@ export type SendMessageInput = {
   roomId: string;
   text: string;
   clientMessageId: string;
+  replyToMessageId?: string;
 };
 
 export type TypingUpdateInput = {
@@ -53,6 +54,7 @@ export type ChatMessage = {
   text: string;
   createdAt: string;
   clientMessageId?: string;
+  replyToMessageId?: string;
   author: UserIdentity;
 };
 

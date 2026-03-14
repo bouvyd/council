@@ -1,19 +1,28 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage, UserIdentity } from "@council/shared";
 import { MessageComposer } from "../components/MessageComposer";
+import { MessageItem } from "../components/MessageItem";
 
 type RoomScreenProps = {
   currentUser: UserIdentity | null;
   presence: UserIdentity[];
   typingBySessionId: Record<string, boolean>;
   messages: ChatMessage[];
+  activeReplyToMessageId: string | null;
   draft: string;
   submitting: boolean;
   onDraftChange: (value: string) => void;
+  onSelectReply: (messageId: string) => void;
+  onClearReply: () => void;
   onSendMessage: () => void;
 };
 
-function formatTime(timestamp: string): string {
-  return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+function truncate(text: string, length: number): string {
+  if (text.length <= length) {
+    return text;
+  }
+
+  return `${text.slice(0, length)}...`;
 }
 
 export function RoomScreen({
@@ -21,12 +30,56 @@ export function RoomScreen({
   presence,
   typingBySessionId,
   messages,
+  activeReplyToMessageId,
   draft,
   submitting,
   onDraftChange,
+  onSelectReply,
+  onClearReply,
   onSendMessage,
 }: RoomScreenProps) {
+  const highlightTimeoutRef = useRef<number | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+
   const otherUsers = presence.filter((user) => user.sessionId !== currentUser?.sessionId);
+  const messageById = useMemo(() => {
+    const map = new Map<string, ChatMessage>();
+    for (const message of messages) {
+      map.set(message.id, message);
+    }
+
+    return map;
+  }, [messages]);
+
+  const activeReplyMessage = activeReplyToMessageId ? messageById.get(activeReplyToMessageId) ?? null : null;
+  const replyPreview = activeReplyMessage ? truncate(activeReplyMessage.text, 60) : null;
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current !== null) {
+        window.clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const jumpToMessage = (messageId: string) => {
+    const target = document.getElementById(`message-${messageId}`);
+    if (!target) {
+      return;
+    }
+
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedMessageId(messageId);
+
+    if (highlightTimeoutRef.current !== null) {
+      window.clearTimeout(highlightTimeoutRef.current);
+    }
+
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      setHighlightedMessageId((current) => (current === messageId ? null : current));
+      highlightTimeoutRef.current = null;
+    }, 2000);
+  };
 
   return (
     <section className="chat-grid">
@@ -58,16 +111,15 @@ export function RoomScreen({
             ) : (
               <ul className="message-list">
                 {messages.map((message) => (
-                  <li
-                    className={`message-item ${message.author.sessionId === currentUser?.sessionId ? "message-item-self" : ""}`.trim()}
+                  <MessageItem
                     key={message.id}
-                  >
-                    <div className="message-meta">
-                      <span>{message.author.displayName}</span>
-                      <span>{formatTime(message.createdAt)}</span>
-                    </div>
-                    <p className="message-text">{message.text}</p>
-                  </li>
+                    message={message}
+                    isSelf={message.author.sessionId === currentUser?.sessionId}
+                    isHighlighted={highlightedMessageId === message.id}
+                    replyToMessage={message.replyToMessageId ? messageById.get(message.replyToMessageId) ?? null : null}
+                    onReply={onSelectReply}
+                    onJumpToMessage={jumpToMessage}
+                  />
                 ))}
               </ul>
             )}
@@ -77,7 +129,9 @@ export function RoomScreen({
         <MessageComposer
           draft={draft}
           submitting={submitting}
+          replyPreview={replyPreview}
           onDraftChange={onDraftChange}
+          onClearReply={onClearReply}
           onSend={onSendMessage}
         />
       </div>
