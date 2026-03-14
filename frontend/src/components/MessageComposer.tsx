@@ -1,0 +1,61 @@
+import type { FormEvent, KeyboardEvent } from "react";
+
+type MessageComposerProps = {
+  draft: string;
+  submitting: boolean;
+  onDraftChange: (value: string) => void;
+  onSend: () => void;
+};
+
+export function MessageComposer({ draft, submitting, onDraftChange, onSend }: MessageComposerProps) {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submitting || !draft.trim()) {
+      return;
+    }
+
+    onSend();
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (submitting || !draft.trim()) {
+      return;
+    }
+
+    onSend();
+  };
+
+  return (
+    <form className="composer-row" onSubmit={handleSubmit}>
+      <label className="sr-only" htmlFor="message-input">
+        Message
+      </label>
+      <textarea
+        id="message-input"
+        className="field-input resize-none"
+        value={draft}
+        onChange={(event) => onDraftChange(event.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Type a message"
+        rows={2}
+        aria-describedby="composer-help"
+      />
+      <button
+        className="arcade-button"
+        type="submit"
+        disabled={submitting || !draft.trim()}
+      >
+        Send
+      </button>
+      <p className="sr-only" id="composer-help">
+        Press Enter to send. Press Shift plus Enter for a new line.
+      </p>
+    </form>
+  );
+}
