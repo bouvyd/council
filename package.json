@@ -1,0 +1,21 @@
+{
+  "name": "council",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c cyan,magenta \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace @council/backend",
+    "dev:frontend": "npm run dev --workspace @council/frontend",
+    "build": "npm run build --workspace @council/backend && npm run build --workspace @council/frontend && npm run build --workspace @council/shared",
+    "check": "npm run check --workspace @council/backend && npm run check --workspace @council/frontend && npm run check --workspace @council/shared"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.2"
+  }
+}
