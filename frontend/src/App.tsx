@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ChatMessage, PresenceUpdate, RoomJoined, UserIdentity } from "@council/shared";
 import { Navigate, Route, Routes, useMatch, useNavigate } from "react-router-dom";
 import { socket } from "./lib/socket";
+import { getRoomIdentity, saveRoomIdentity } from "./lib/persistence";
 import { AppHeader } from "./components/AppHeader";
 import { NameRequiredModal } from "./components/NameRequiredModal";
 import { LobbyScreen } from "./screens/LobbyScreen";
@@ -38,8 +39,18 @@ function AppShell() {
 
     setTargetRouteRoomId(routeRoomId);
     setRoomIdInput(routeRoomId);
-    setIsNameModalOpen(true);
     setError(null);
+
+    const persistedIdentity = getRoomIdentity(routeRoomId);
+    if (persistedIdentity) {
+      setIsNameModalOpen(false);
+      setRouteName(persistedIdentity);
+      setDisplayName(persistedIdentity);
+      joinRoomById(persistedIdentity, routeRoomId, "replace");
+      return;
+    }
+
+    setIsNameModalOpen(true);
   }, [routeRoomId, currentRoomId]);
 
   useEffect(() => {
@@ -76,6 +87,7 @@ function AppShell() {
   }, [currentRoomId]);
 
   const handleRoomSuccess = (joined: RoomJoined) => {
+    saveRoomIdentity(joined.roomId, joined.user.displayName);
     setCurrentRoomId(joined.roomId);
     setCurrentUser(joined.user);
     setRoomIdInput(joined.roomId);
