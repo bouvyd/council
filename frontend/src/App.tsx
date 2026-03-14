@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
-import type { ChatMessage, PresenceUpdate, RoomJoined, UserIdentity } from "@council/shared";
+import { useEffect } from "react";
+import type { RoomJoined } from "@council/shared";
 import { Navigate, Route, Routes, useMatch, useNavigate } from "react-router-dom";
 import { socket } from "./lib/socket";
 import { getRoomIdentity, saveRoomIdentity } from "./lib/persistence";
+import { getNormalizedRoomId, useAppStore } from "./store/useAppStore";
 import { AppHeader } from "./components/AppHeader";
 import { NameRequiredModal } from "./components/NameRequiredModal";
 import { LobbyScreen } from "./screens/LobbyScreen";
@@ -13,89 +14,88 @@ function AppShell() {
   const routeMatch = useMatch("/council/:roomId");
   const routeRoomId = routeMatch?.params.roomId ?? null;
 
-  const [displayName, setDisplayName] = useState("");
-  const [routeName, setRouteName] = useState("");
-  const [roomIdInput, setRoomIdInput] = useState("");
-  const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<UserIdentity | null>(null);
-  const [targetRouteRoomId, setTargetRouteRoomId] = useState<string | null>(null);
-  const [pendingJoinRoomId, setPendingJoinRoomId] = useState<string | null>(null);
-  const [isNameModalOpen, setIsNameModalOpen] = useState(false);
-  const [presenceRoomId, setPresenceRoomId] = useState<string | null>(null);
-  const [presence, setPresence] = useState<UserIdentity[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [draft, setDraft] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const currentRoomIdRef = useRef<string | null>(null);
-  const pendingJoinRoomIdRef = useRef<string | null>(null);
-  const presenceRoomIdRef = useRef<string | null>(null);
+  const {
+    displayName,
+    routeName,
+    roomIdInput,
+    currentRoomId,
+    currentUser,
+    targetRouteRoomId,
+    isNameModalOpen,
+    presence,
+    messages,
+    draft,
+    error,
+    submitting,
+    setDisplayName,
+    setRouteName,
+    setRoomIdInput,
+    setDraft,
+    setError,
+    setSubmitting,
+    setPendingJoinRoomId,
+    setIsNameModalOpen,
+    prepareRouteTarget,
+    clearRouteTarget,
+    setRouteIdentity,
+    applyRoomSuccess,
+    clearRoomSession,
+  } = useAppStore();
 
-  const normalizeRoomId = (value: string | null): string | null => value?.trim().toLowerCase() ?? null;
+  const handleRoomSuccess = (joined: RoomJoined) => {
+    saveRoomIdentity(joined.roomId, joined.user.displayName);
+    useAppStore.getState().applyRoomSuccess(joined);
+  };
 
-  useEffect(() => {
-    currentRoomIdRef.current = currentRoomId;
-  }, [currentRoomId]);
+  const joinRoomById = (name: string, roomId: string, mode: "push" | "replace" = "push") => {
+    setPendingJoinRoomId(roomId);
+    setSubmitting(true);
+    setError(null);
 
-  useEffect(() => {
-    pendingJoinRoomIdRef.current = pendingJoinRoomId;
-  }, [pendingJoinRoomId]);
+    socket.emit("room:join", { displayName: name, roomId }, (result) => {
+      if (!result.ok) {
+        useAppStore.getState().setPendingJoinRoomId(null);
+        useAppStore.getState().setError(result.error);
+        useAppStore.getState().setSubmitting(false);
+        return;
+      }
 
-  useEffect(() => {
-    presenceRoomIdRef.current = presenceRoomId;
-  }, [presenceRoomId]);
+      handleRoomSuccess(result.data);
+
+      if (mode === "replace") {
+        navigate(`/council/${result.data.roomId}`, { replace: true });
+      } else {
+        navigate(`/council/${result.data.roomId}`);
+      }
+    });
+  };
 
   useEffect(() => {
     if (!routeRoomId) {
-      setTargetRouteRoomId(null);
-      setIsNameModalOpen(false);
+      clearRouteTarget();
       return;
     }
 
-    if (normalizeRoomId(currentRoomId) === normalizeRoomId(routeRoomId)) {
+    if (getNormalizedRoomId(currentRoomId) === getNormalizedRoomId(routeRoomId)) {
       return;
     }
 
-    setTargetRouteRoomId(routeRoomId);
-    setRoomIdInput(routeRoomId);
-    setError(null);
+    prepareRouteTarget(routeRoomId);
 
     const persistedIdentity = getRoomIdentity(routeRoomId);
     if (persistedIdentity) {
-      setIsNameModalOpen(false);
-      setRouteName(persistedIdentity);
-      setDisplayName(persistedIdentity);
+      setRouteIdentity(persistedIdentity);
       joinRoomById(persistedIdentity, routeRoomId, "replace");
       return;
     }
 
     setIsNameModalOpen(true);
-  }, [routeRoomId, currentRoomId]);
+  }, [routeRoomId, currentRoomId, clearRouteTarget, prepareRouteTarget, setIsNameModalOpen, setRouteIdentity]);
 
   useEffect(() => {
-    const onPresence = (payload: PresenceUpdate) => {
-      const activeRoomId = currentRoomIdRef.current ?? pendingJoinRoomIdRef.current;
-
-      if (!activeRoomId || normalizeRoomId(payload.roomId) !== normalizeRoomId(activeRoomId)) {
-        return;
-      }
-
-      setPresence(payload.users);
-      setPresenceRoomId(payload.roomId);
-    };
-
-    const onMessageCreated = (payload: ChatMessage) => {
-      if (!currentRoomIdRef.current || normalizeRoomId(payload.roomId) !== normalizeRoomId(currentRoomIdRef.current)) {
-        return;
-      }
-
-      setMessages((current) => [...current, payload]);
-    };
-
-    const onSystemError = (payload: { message: string }) => {
-      setError(payload.message);
-      setSubmitting(false);
-    };
+    const onPresence = useAppStore.getState().applyPresence;
+    const onMessageCreated = useAppStore.getState().appendMessage;
+    const onSystemError = (payload: { message: string }) => useAppStore.getState().applySystemError(payload.message);
 
     socket.on("room:presence", onPresence);
     socket.on("message:created", onMessageCreated);
@@ -107,27 +107,6 @@ function AppShell() {
       socket.off("system:error", onSystemError);
     };
   }, []);
-
-  const handleRoomSuccess = (joined: RoomJoined) => {
-    saveRoomIdentity(joined.roomId, joined.user.displayName);
-    setPendingJoinRoomId(null);
-    setCurrentRoomId(joined.roomId);
-    setCurrentUser(joined.user);
-    setRoomIdInput(joined.roomId);
-    setTargetRouteRoomId(null);
-    setIsNameModalOpen(false);
-    setPresence((current) => {
-      if (normalizeRoomId(presenceRoomIdRef.current) === normalizeRoomId(joined.roomId)) {
-        return current;
-      }
-
-      return [joined.user];
-    });
-    setPresenceRoomId(joined.roomId);
-    setMessages([]);
-    setError(null);
-    setSubmitting(false);
-  };
 
   const createRoom = () => {
     if (!displayName.trim()) {
@@ -147,29 +126,6 @@ function AppShell() {
 
       handleRoomSuccess(result.data);
       navigate(`/council/${result.data.roomId}`);
-    });
-  };
-
-  const joinRoomById = (name: string, roomId: string, mode: "push" | "replace" = "push") => {
-    setPendingJoinRoomId(normalizeRoomId(roomId));
-    setSubmitting(true);
-    setError(null);
-
-    socket.emit("room:join", { displayName: name, roomId }, (result) => {
-      if (!result.ok) {
-        setPendingJoinRoomId(null);
-        setError(result.error);
-        setSubmitting(false);
-        return;
-      }
-
-      handleRoomSuccess(result.data);
-
-      if (mode === "replace") {
-        navigate(`/council/${result.data.roomId}`, { replace: true });
-      } else {
-        navigate(`/council/${result.data.roomId}`);
-      }
     });
   };
 
@@ -203,14 +159,7 @@ function AppShell() {
         return;
       }
 
-      setCurrentRoomId(null);
-      setCurrentUser(null);
-      setPresenceRoomId(null);
-      setPresence([]);
-      setMessages([]);
-      setDraft("");
-      setError(null);
-      setSubmitting(false);
+      clearRoomSession();
       navigate("/");
     });
   };
