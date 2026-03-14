@@ -10,9 +10,12 @@ const io = new Server(server, {
   },
 });
 
-// Phase 0 placeholder route.
 app.get("/", (_req, res) => {
   res.send("Council backend is running.");
+});
+
+app.get("/health", (_req, res) => {
+  res.json({ ok: true });
 });
 
 io.on("connection", (socket) => {
