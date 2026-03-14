@@ -332,6 +332,34 @@ input {
 	font-size: 0.86rem;
 }
 
+.modal-backdrop {
+	position: fixed;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	padding: 1rem;
+	background: rgba(0, 0, 0, 0.74);
+	z-index: 20;
+}
+
+.modal-panel {
+	width: min(520px, 100%);
+	padding: 1rem;
+	box-shadow: 0 0 0 1px rgba(50, 255, 126, 0.18), 0 0 28px rgba(20, 120, 60, 0.25);
+}
+
+.modal-copy {
+	margin: 0.7rem 0 0;
+	color: var(--text-muted);
+	font-size: 0.9rem;
+}
+
+.modal-form {
+	margin-top: 0.85rem;
+	display: grid;
+	gap: 0.65rem;
+}
+
 @media (max-width: 900px) {
 	.chat-grid {
 		grid-template-columns: 1fr;

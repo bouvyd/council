@@ -7,16 +7,67 @@ function formatTime(timestamp: string): string {
   return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function parseRoomIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/council\/([a-zA-Z0-9_-]+)\/?$/);
+  return match?.[1] ?? null;
+}
+
+function syncPath(roomId: string | null, mode: "push" | "replace" = "push"): void {
+  const targetPath = roomId ? `/council/${roomId}` : "/";
+
+  if (window.location.pathname === targetPath) {
+    return;
+  }
+
+  if (mode === "replace") {
+    window.history.replaceState({}, "", targetPath);
+    return;
+  }
+
+  window.history.pushState({}, "", targetPath);
+}
+
 export default function App() {
   const [displayName, setDisplayName] = useState("");
+  const [routeName, setRouteName] = useState("");
   const [roomIdInput, setRoomIdInput] = useState("");
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<UserIdentity | null>(null);
+  const [targetRouteRoomId, setTargetRouteRoomId] = useState<string | null>(null);
+  const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [presence, setPresence] = useState<UserIdentity[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const applyRoute = () => {
+      const routeRoomId = parseRoomIdFromPath(window.location.pathname);
+
+      if (!routeRoomId) {
+        setTargetRouteRoomId(null);
+        setIsNameModalOpen(false);
+        return;
+      }
+
+      if (currentRoomId === routeRoomId) {
+        return;
+      }
+
+      setTargetRouteRoomId(routeRoomId);
+      setRoomIdInput(routeRoomId);
+      setIsNameModalOpen(true);
+      setError(null);
+    };
+
+    applyRoute();
+    window.addEventListener("popstate", applyRoute);
+
+    return () => {
+      window.removeEventListener("popstate", applyRoute);
+    };
+  }, [currentRoomId]);
 
   useEffect(() => {
     const onPresence = (payload: PresenceUpdate) => {
@@ -55,6 +106,8 @@ export default function App() {
     setCurrentRoomId(joined.roomId);
     setCurrentUser(joined.user);
     setRoomIdInput(joined.roomId);
+    setTargetRouteRoomId(null);
+    setIsNameModalOpen(false);
     setPresence([joined.user]);
     setMessages([]);
     setError(null);
@@ -78,6 +131,23 @@ export default function App() {
       }
 
       handleRoomSuccess(result.data);
+      syncPath(result.data.roomId, "push");
+    });
+  };
+
+  const joinRoomById = (name: string, roomId: string, mode: "push" | "replace" = "push") => {
+    setSubmitting(true);
+    setError(null);
+
+    socket.emit("room:join", { displayName: name, roomId }, (result) => {
+      if (!result.ok) {
+        setError(result.error);
+        setSubmitting(false);
+        return;
+      }
+
+      handleRoomSuccess(result.data);
+      syncPath(result.data.roomId, mode);
     });
   };
 
@@ -87,22 +157,17 @@ export default function App() {
       return;
     }
 
-    setSubmitting(true);
-    setError(null);
+    joinRoomById(displayName.trim(), roomIdInput.trim(), "push");
+  };
 
-    socket.emit(
-      "room:join",
-      { displayName: displayName.trim(), roomId: roomIdInput.trim() },
-      (result) => {
-        if (!result.ok) {
-          setError(result.error);
-          setSubmitting(false);
-          return;
-        }
+  const joinRoutedRoom = () => {
+    if (!targetRouteRoomId || !routeName.trim()) {
+      setError("Display name is required.");
+      return;
+    }
 
-        handleRoomSuccess(result.data);
-      },
-    );
+    setDisplayName(routeName.trim());
+    joinRoomById(routeName.trim(), targetRouteRoomId, "replace");
   };
 
   const leaveRoom = () => {
@@ -122,6 +187,7 @@ export default function App() {
       setDraft("");
       setError(null);
       setSubmitting(false);
+      syncPath(null, "push");
     });
   };
 
@@ -260,6 +326,49 @@ export default function App() {
             </div>
           </section>
         )}
+
+        {isNameModalOpen ? (
+          <div className="modal-backdrop" role="presentation">
+            <div
+              aria-labelledby="name-modal-title"
+              aria-describedby="name-modal-description"
+              aria-modal="true"
+              className="panel modal-panel"
+              role="dialog"
+            >
+              <h2 className="panel-title" id="name-modal-title">enter your call sign</h2>
+              <p className="modal-copy" id="name-modal-description">
+                Join room <strong>#{targetRouteRoomId}</strong>.
+              </p>
+              <form
+                className="modal-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  joinRoutedRoom();
+                }}
+              >
+                <label className="field-label" htmlFor="route-name-input">
+                  Name
+                </label>
+                <input
+                  id="route-name-input"
+                  className="field-input"
+                  value={routeName}
+                  onChange={(event) => setRouteName(event.target.value)}
+                  placeholder="damien"
+                  autoFocus
+                />
+                <button
+                  className="arcade-button"
+                  type="submit"
+                  disabled={submitting || !routeName.trim()}
+                >
+                  Enter room
+                </button>
+              </form>
+            </div>
+          </div>
+        ) : null}
       </div>
     </main>
   );
