@@ -78,6 +78,12 @@ input {
 	gap: 0.8rem;
 }
 
+.app-header-main {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+}
+
 .app-kicker {
 	margin: 0;
 	color: var(--primary-bright);
@@ -87,7 +93,7 @@ input {
 }
 
 .app-title {
-	margin: 0.6rem 0 0;
+	margin: 0;
 	color: var(--primary);
 	font-family: "IBM Plex Mono", monospace;
 	font-weight: 600;
@@ -169,11 +175,6 @@ input {
 	cursor: not-allowed;
 }
 
-.arcade-button-alt {
-	background: linear-gradient(180deg, #0a2817 0%, #081e12 100%);
-	color: var(--primary-bright);
-}
-
 .chat-grid {
 	display: grid;
 	flex: 1;
@@ -217,6 +218,11 @@ input {
 
 .header-leave {
 	flex-shrink: 0;
+}
+
+.header-feedback {
+	color: var(--danger);
+	font-size: 0.78rem;
 }
 
 .presence-block {
@@ -381,5 +387,9 @@ input {
 	.app-header-row {
 		align-items: flex-start;
 		flex-direction: column;
+	}
+
+	.app-header-main {
+		flex-wrap: wrap;
 	}
 }

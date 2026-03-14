@@ -43,7 +43,7 @@ export function LobbyScreen({
         <button className="arcade-button" onClick={onCreateRoom} type="button" disabled={submitting}>
           Create room
         </button>
-        <button className="arcade-button arcade-button-alt" onClick={onJoinRoom} type="button" disabled={submitting}>
+        <button className="arcade-button" onClick={onJoinRoom} type="button" disabled={submitting}>
           Join room
         </button>
       </div>
