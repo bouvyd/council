@@ -316,7 +316,69 @@ input {
 	color: var(--text);
 	font-size: 0.91rem;
 	line-height: 1.45;
-	white-space: pre-wrap;
+}
+
+.markdown-content > :first-child {
+	margin-top: 0;
+}
+
+.markdown-content > :last-child {
+	margin-bottom: 0;
+}
+
+.markdown-content p,
+.markdown-content ul,
+.markdown-content ol,
+.markdown-content pre,
+.markdown-content blockquote,
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+	margin: 0.42rem 0;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+	padding-left: 1.2rem;
+}
+
+.markdown-content code {
+	font-family: "Iosevka", "Fira Code", monospace;
+	font-size: 0.84em;
+	padding: 0.08rem 0.25rem;
+	border-radius: 4px;
+	background: rgba(7, 29, 16, 0.92);
+	border: 1px solid #1d5f38;
+}
+
+.markdown-content pre {
+	padding: 0.48rem 0.56rem;
+	border-radius: var(--radius);
+	background: rgba(7, 29, 16, 0.92);
+	border: 1px solid #1d5f38;
+	overflow-x: auto;
+}
+
+.markdown-content pre code {
+	padding: 0;
+	border: 0;
+	background: transparent;
+}
+
+.markdown-content blockquote {
+	margin-left: 0;
+	padding-left: 0.62rem;
+	border-left: 2px solid #1d6a3b;
+	color: var(--text-muted);
+}
+
+.markdown-content a {
+	color: var(--primary-bright);
+	text-decoration: underline;
+	text-decoration-color: rgba(50, 255, 126, 0.38);
 }
 
 .message-item-highlighted {

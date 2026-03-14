@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "@council/shared";
+import ReactMarkdown from "react-markdown";
 import { EmojiPickerPopover } from "./EmojiPicker";
 import { ReactionBar } from "./ReactionBar";
 
@@ -109,7 +110,9 @@ export function MessageItem({
         </div>
       ) : null}
 
-      <p className="message-text">{message.text}</p>
+      <div className="message-text markdown-content">
+        <ReactMarkdown skipHtml>{message.text}</ReactMarkdown>
+      </div>
 
       <ReactionBar
         messageId={message.id}
