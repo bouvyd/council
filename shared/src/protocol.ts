@@ -43,6 +43,10 @@ export type TypingUpdateInput = {
   isTyping: boolean;
 };
 
+export type CheckRoomInput = {
+  roomId: string;
+};
+
 export type ChatMessage = {
   id: string;
   roomId: string;
@@ -71,6 +75,10 @@ export interface ClientToServerEvents {
   "room:join": (
     payload: JoinRoomInput,
     callback: (result: AckResult<RoomJoined>) => void,
+  ) => void;
+  "room:check": (
+    payload: CheckRoomInput,
+    callback: (result: AckResult<{ exists: boolean }>) => void,
   ) => void;
   "room:leave": (callback: (result: AckResult<RoomRef>) => void) => void;
   "message:send": (

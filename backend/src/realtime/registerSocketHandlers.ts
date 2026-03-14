@@ -61,6 +61,17 @@ export function registerSocketHandlers(io: TypedIO, rooms: Map<string, RoomState
       callback({ ok: true, data: { roomId, user } });
     });
 
+    socket.on("room:check", (payload, callback) => {
+      const roomId = payload.roomId.trim().toLowerCase();
+
+      if (!roomId) {
+        callback({ ok: false, error: "Room id is required." });
+        return;
+      }
+
+      callback({ ok: true, data: { exists: rooms.has(roomId) } });
+    });
+
     socket.on("room:join", (payload, callback) => {
       const roomId = payload.roomId.trim().toLowerCase();
       const displayName = payload.displayName.trim();

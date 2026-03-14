@@ -85,6 +85,11 @@ function AppShell() {
     socket.emit("room:join", { displayName: name, roomId }, (result) => {
       if (!result.ok) {
         useAppStore.getState().setPendingJoinRoomId(null);
+        const normalizedError = result.error.trim().toLowerCase();
+        if (mode === "replace" && normalizedError === "room not found.") {
+          clearRouteTarget();
+          navigate("/", { replace: true });
+        }
         useAppStore.getState().setError(result.error);
         useAppStore.getState().setSubmitting(false);
         return;
@@ -119,16 +124,32 @@ function AppShell() {
       return;
     }
 
-    prepareRouteTarget(routeRoomId);
+    socket.emit("room:check", { roomId: routeRoomId }, (result) => {
+      if (!result.ok) {
+        setError(result.error);
+        clearRouteTarget();
+        navigate("/", { replace: true });
+        return;
+      }
 
-    const persistedIdentity = getRoomIdentity(routeRoomId);
-    if (persistedIdentity) {
-      setRouteIdentity(persistedIdentity);
-      joinRoomById(persistedIdentity, routeRoomId, "replace");
-      return;
-    }
+      if (!result.data.exists) {
+        setError("Room not found.");
+        clearRouteTarget();
+        navigate("/", { replace: true });
+        return;
+      }
 
-    setIsNameModalOpen(true);
+      prepareRouteTarget(routeRoomId);
+
+      const persistedIdentity = getRoomIdentity(routeRoomId);
+      if (persistedIdentity) {
+        setRouteIdentity(persistedIdentity);
+        joinRoomById(persistedIdentity, routeRoomId, "replace");
+        return;
+      }
+
+      setIsNameModalOpen(true);
+    });
   }, [routeRoomId, currentRoomId, clearRouteTarget, prepareRouteTarget, setIsNameModalOpen, setRouteIdentity]);
 
   useEffect(() => {
