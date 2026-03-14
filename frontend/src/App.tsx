@@ -2,6 +2,14 @@ import { useEffect, useRef } from "react";
 import type { RoomJoined } from "@council/shared";
 import { Navigate, Route, Routes, useMatch, useNavigate } from "react-router-dom";
 import { socket } from "./lib/socket";
+import {
+  checkRoomRequest,
+  createRoomRequest,
+  emitTypingUpdate,
+  joinRoomRequest,
+  leaveRoomRequest,
+  sendMessageRequest,
+} from "./lib/chatClient";
 import { getRoomIdentity, saveRoomIdentity } from "./lib/persistence";
 import { getNormalizedRoomId, useAppStore } from "./store/useAppStore";
 import { AppHeader } from "./components/AppHeader";
@@ -54,7 +62,7 @@ function AppShell() {
       return;
     }
 
-    socket.emit("typing:update", { roomId, isTyping });
+    emitTypingUpdate({ roomId, isTyping });
   };
 
   const resetTypingIdleTimer = () => {
@@ -80,32 +88,31 @@ function AppShell() {
     useAppStore.getState().applyRoomSuccess(joined);
   };
 
-  const joinRoomById = (name: string, roomId: string, mode: "push" | "replace" = "push") => {
+  const joinRoomById = async (name: string, roomId: string, mode: "push" | "replace" = "push") => {
     setPendingJoinRoomId(roomId);
     setSubmitting(true);
     setError(null);
 
-    socket.emit("room:join", { displayName: name, roomId }, (result) => {
-      if (!result.ok) {
-        useAppStore.getState().setPendingJoinRoomId(null);
-        const normalizedError = result.error.trim().toLowerCase();
-        if (mode === "replace" && normalizedError === "room not found.") {
-          clearRouteTarget();
-          navigate("/", { replace: true });
-        }
-        useAppStore.getState().setError(result.error);
-        useAppStore.getState().setSubmitting(false);
-        return;
-      }
-
-      handleRoomSuccess(result.data);
+    try {
+      const joined = await joinRoomRequest({ displayName: name, roomId });
+      handleRoomSuccess(joined);
 
       if (mode === "replace") {
-        navigate(`/council/${result.data.roomId}`, { replace: true });
+        navigate(`/council/${joined.roomId}`, { replace: true });
       } else {
-        navigate(`/council/${result.data.roomId}`);
+        navigate(`/council/${joined.roomId}`);
       }
-    });
+    } catch (joinError) {
+      useAppStore.getState().setPendingJoinRoomId(null);
+      const message = joinError instanceof Error ? joinError.message : "Join failed.";
+      const normalizedError = message.trim().toLowerCase();
+      if (mode === "replace" && normalizedError === "room not found.") {
+        clearRouteTarget();
+        navigate("/", { replace: true });
+      }
+      useAppStore.getState().setError(message);
+      useAppStore.getState().setSubmitting(false);
+    }
   };
 
   useEffect(() => {
@@ -127,32 +134,33 @@ function AppShell() {
       return;
     }
 
-    socket.emit("room:check", { roomId: routeRoomId }, (result) => {
-      if (!result.ok) {
-        setError(result.error);
+    void (async () => {
+      try {
+        const result = await checkRoomRequest({ roomId: routeRoomId });
+        if (!result.exists) {
+          setError("Room not found.");
+          clearRouteTarget();
+          navigate("/", { replace: true });
+          return;
+        }
+
+        prepareRouteTarget(routeRoomId);
+
+        const persistedIdentity = getRoomIdentity(routeRoomId);
+        if (persistedIdentity) {
+          setRouteIdentity(persistedIdentity);
+          await joinRoomById(persistedIdentity, routeRoomId, "replace");
+          return;
+        }
+
+        setIsNameModalOpen(true);
+      } catch (checkError) {
+        const message = checkError instanceof Error ? checkError.message : "Room check failed.";
+        setError(message);
         clearRouteTarget();
         navigate("/", { replace: true });
-        return;
       }
-
-      if (!result.data.exists) {
-        setError("Room not found.");
-        clearRouteTarget();
-        navigate("/", { replace: true });
-        return;
-      }
-
-      prepareRouteTarget(routeRoomId);
-
-      const persistedIdentity = getRoomIdentity(routeRoomId);
-      if (persistedIdentity) {
-        setRouteIdentity(persistedIdentity);
-        joinRoomById(persistedIdentity, routeRoomId, "replace");
-        return;
-      }
-
-      setIsNameModalOpen(true);
-    });
+    })();
   }, [routeRoomId, currentRoomId, clearRouteTarget, prepareRouteTarget, setIsNameModalOpen, setRouteIdentity]);
 
   useEffect(() => {
@@ -189,16 +197,16 @@ function AppShell() {
     setSubmitting(true);
     setError(null);
 
-    socket.emit("room:create", { displayName: displayName.trim() }, (result) => {
-      if (!result.ok) {
-        setError(result.error);
+    void (async () => {
+      try {
+        const joined = await createRoomRequest({ displayName: displayName.trim() });
+        handleRoomSuccess(joined);
+        navigate(`/council/${joined.roomId}`);
+      } catch (createError) {
+        setError(createError instanceof Error ? createError.message : "Room creation failed.");
         setSubmitting(false);
-        return;
       }
-
-      handleRoomSuccess(result.data);
-      navigate(`/council/${result.data.roomId}`);
-    });
+    })();
   };
 
   const joinRoom = () => {
@@ -227,18 +235,18 @@ function AppShell() {
     setPendingJoinRoomId(null);
     setSubmitting(true);
 
-    socket.emit("room:leave", (result) => {
-      if (!result.ok) {
+    void (async () => {
+      try {
+        await leaveRoomRequest();
+        clearRoomSession();
+        clearRouteTarget();
+        navigate("/", { replace: true });
+      } catch (leaveError) {
         suppressRouteAutoJoinRef.current = false;
-        setError(result.error);
+        setError(leaveError instanceof Error ? leaveError.message : "Leave failed.");
         setSubmitting(false);
-        return;
       }
-
-      clearRoomSession();
-      clearRouteTarget();
-      navigate("/", { replace: true });
-    });
+    })();
   };
 
   const sendMessage = () => {
@@ -254,25 +262,22 @@ function AppShell() {
     clearTypingIdleTimer();
     emitTyping(false);
 
-    socket.emit(
-      "message:send",
-      {
-        roomId: currentRoomId,
-        text,
-        clientMessageId,
-        replyToMessageId: activeReplyToMessageId ?? undefined,
-      },
-      (result) => {
-        if (!result.ok) {
-          setError(result.error);
-        } else {
-          setDraft("");
-          clearActiveReplyToMessageId();
-        }
-
+    void (async () => {
+      try {
+        await sendMessageRequest({
+          roomId: currentRoomId,
+          text,
+          clientMessageId,
+          replyToMessageId: activeReplyToMessageId ?? undefined,
+        });
+        setDraft("");
+        clearActiveReplyToMessageId();
+      } catch (sendError) {
+        setError(sendError instanceof Error ? sendError.message : "Send failed.");
+      } finally {
         setSubmitting(false);
-      },
-    );
+      }
+    })();
   };
 
   const handleDraftChange = (value: string) => {
