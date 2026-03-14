@@ -83,7 +83,6 @@ input {
 	color: var(--primary-bright);
 	font-size: 0.65rem;
 	letter-spacing: 0.22em;
-	text-transform: uppercase;
 	text-shadow: 0 0 8px var(--primary-soft);
 }
 
@@ -156,7 +155,6 @@ input {
 	font-size: 0.63rem;
 	letter-spacing: 0.05em;
 	line-height: 1.4;
-	text-transform: uppercase;
 	padding: 0.72rem 0.85rem;
 	cursor: pointer;
 }
@@ -308,7 +306,7 @@ input {
 }
 
 .composer-row .field-input {
-	resize: vertical;
+	resize: none;
 	min-height: 2.6rem;
 }
 

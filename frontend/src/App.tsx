@@ -160,7 +160,7 @@ export default function App() {
               type="button"
               disabled={submitting}
             >
-              Leave room
+              leave room
             </button>
           ) : null}
         </header>

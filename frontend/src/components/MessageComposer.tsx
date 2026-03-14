@@ -38,7 +38,7 @@ export function MessageComposer({ draft, submitting, onDraftChange, onSend }: Me
       </label>
       <textarea
         id="message-input"
-        className="field-input resize-none"
+        className="field-input"
         value={draft}
         onChange={(event) => onDraftChange(event.target.value)}
         onKeyDown={handleKeyDown}
