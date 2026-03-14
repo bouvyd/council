@@ -244,6 +244,15 @@ input {
 	padding: 0.38rem 0.52rem;
 	color: var(--text);
 	font-size: 0.88rem;
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+}
+
+.presence-typing {
+	color: var(--text-muted);
+	font-size: 0.72rem;
+	letter-spacing: 0.02em;
 }
 
 

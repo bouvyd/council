@@ -38,6 +38,11 @@ export type SendMessageInput = {
   clientMessageId: string;
 };
 
+export type TypingUpdateInput = {
+  roomId: string;
+  isTyping: boolean;
+};
+
 export type ChatMessage = {
   id: string;
   roomId: string;
@@ -50,6 +55,12 @@ export type ChatMessage = {
 export type PresenceUpdate = {
   roomId: string;
   users: UserIdentity[];
+};
+
+export type TypingUpdate = {
+  roomId: string;
+  sessionId: string;
+  isTyping: boolean;
 };
 
 export interface ClientToServerEvents {
@@ -66,10 +77,12 @@ export interface ClientToServerEvents {
     payload: SendMessageInput,
     callback: (result: AckResult<{ messageId: string }>) => void,
   ) => void;
+  "typing:update": (payload: TypingUpdateInput) => void;
 }
 
 export interface ServerToClientEvents {
   "room:presence": (payload: PresenceUpdate) => void;
   "message:created": (payload: ChatMessage) => void;
+  "typing:update": (payload: TypingUpdate) => void;
   "system:error": (payload: { message: string }) => void;
 }

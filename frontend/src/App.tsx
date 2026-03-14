@@ -14,6 +14,7 @@ function AppShell() {
   const routeMatch = useMatch("/council/:roomId");
   const routeRoomId = routeMatch?.params.roomId ?? null;
   const suppressRouteAutoJoinRef = useRef(false);
+  const typingIdleTimeoutRef = useRef<number | null>(null);
 
   const {
     displayName,
@@ -25,6 +26,7 @@ function AppShell() {
     isNameModalOpen,
     presence,
     messages,
+    typingBySessionId,
     draft,
     error,
     submitting,
@@ -42,6 +44,33 @@ function AppShell() {
     applyRoomSuccess,
     clearRoomSession,
   } = useAppStore();
+
+  const emitTyping = (isTyping: boolean) => {
+    const roomId = useAppStore.getState().currentRoomId;
+    if (!roomId) {
+      return;
+    }
+
+    socket.emit("typing:update", { roomId, isTyping });
+  };
+
+  const resetTypingIdleTimer = () => {
+    if (typingIdleTimeoutRef.current !== null) {
+      window.clearTimeout(typingIdleTimeoutRef.current);
+    }
+
+    typingIdleTimeoutRef.current = window.setTimeout(() => {
+      emitTyping(false);
+      typingIdleTimeoutRef.current = null;
+    }, 1400);
+  };
+
+  const clearTypingIdleTimer = () => {
+    if (typingIdleTimeoutRef.current !== null) {
+      window.clearTimeout(typingIdleTimeoutRef.current);
+      typingIdleTimeoutRef.current = null;
+    }
+  };
 
   const handleRoomSuccess = (joined: RoomJoined) => {
     saveRoomIdentity(joined.roomId, joined.user.displayName);
@@ -105,16 +134,25 @@ function AppShell() {
   useEffect(() => {
     const onPresence = useAppStore.getState().applyPresence;
     const onMessageCreated = useAppStore.getState().appendMessage;
+    const onTypingUpdate = useAppStore.getState().applyTypingUpdate;
     const onSystemError = (payload: { message: string }) => useAppStore.getState().applySystemError(payload.message);
 
     socket.on("room:presence", onPresence);
     socket.on("message:created", onMessageCreated);
+    socket.on("typing:update", onTypingUpdate);
     socket.on("system:error", onSystemError);
 
     return () => {
       socket.off("room:presence", onPresence);
       socket.off("message:created", onMessageCreated);
+      socket.off("typing:update", onTypingUpdate);
       socket.off("system:error", onSystemError);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearTypingIdleTimer();
     };
   }, []);
 
@@ -160,6 +198,8 @@ function AppShell() {
 
   const leaveRoom = () => {
     suppressRouteAutoJoinRef.current = true;
+    clearTypingIdleTimer();
+    emitTyping(false);
     setPendingJoinRoomId(null);
     setSubmitting(true);
 
@@ -187,6 +227,8 @@ function AppShell() {
 
     setSubmitting(true);
     setError(null);
+    clearTypingIdleTimer();
+    emitTyping(false);
 
     socket.emit("message:send", { roomId: currentRoomId, text, clientMessageId }, (result) => {
       if (!result.ok) {
@@ -197,6 +239,23 @@ function AppShell() {
 
       setSubmitting(false);
     });
+  };
+
+  const handleDraftChange = (value: string) => {
+    setDraft(value);
+
+    if (!currentRoomId) {
+      return;
+    }
+
+    if (!value.trim()) {
+      clearTypingIdleTimer();
+      emitTyping(false);
+      return;
+    }
+
+    emitTyping(true);
+    resetTypingIdleTimer();
   };
 
   return (
@@ -223,10 +282,11 @@ function AppShell() {
           <RoomScreen
             currentUser={currentUser}
             presence={presence}
+            typingBySessionId={typingBySessionId}
             messages={messages}
             draft={draft}
             submitting={submitting}
-            onDraftChange={setDraft}
+            onDraftChange={handleDraftChange}
             onSendMessage={sendMessage}
           />
         )}

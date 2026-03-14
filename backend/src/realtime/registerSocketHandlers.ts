@@ -7,6 +7,21 @@ export function registerSocketHandlers(io: TypedIO, rooms: Map<string, RoomState
   io.on("connection", (socket) => {
     console.log(`Socket connected: ${socket.id}`);
 
+    const emitTypingUpdate = (isTyping: boolean) => {
+      const roomId = socket.data.roomId;
+      const user = socket.data.user;
+
+      if (!roomId || !user) {
+        return;
+      }
+
+      io.to(roomId).emit("typing:update", {
+        roomId,
+        sessionId: user.sessionId,
+        isTyping,
+      });
+    };
+
     socket.on("room:create", (payload, callback) => {
       const displayName = payload.displayName.trim();
 
@@ -84,6 +99,16 @@ export function registerSocketHandlers(io: TypedIO, rooms: Map<string, RoomState
       callback({ ok: true, data: { roomId: room.id, user } });
     });
 
+    socket.on("typing:update", (payload) => {
+      const roomId = socket.data.roomId;
+
+      if (!roomId || payload.roomId.trim().toLowerCase() !== roomId) {
+        return;
+      }
+
+      emitTypingUpdate(payload.isTyping);
+    });
+
     socket.on("room:leave", (callback) => {
       const roomId = socket.data.roomId;
 
@@ -91,6 +116,8 @@ export function registerSocketHandlers(io: TypedIO, rooms: Map<string, RoomState
         callback({ ok: false, error: "You are not in a room." });
         return;
       }
+
+      emitTypingUpdate(false);
 
       const room = removeSocketFromRoom(rooms, socket.id, roomId);
       if (room) {
@@ -132,6 +159,8 @@ export function registerSocketHandlers(io: TypedIO, rooms: Map<string, RoomState
         return;
       }
 
+      emitTypingUpdate(false);
+
       const message: ChatMessage = {
         id: randomUUID(),
         roomId,
@@ -146,6 +175,8 @@ export function registerSocketHandlers(io: TypedIO, rooms: Map<string, RoomState
     });
 
     socket.on("disconnect", () => {
+      emitTypingUpdate(false);
+
       const room = removeSocketFromRoom(rooms, socket.id, socket.data.roomId);
       if (room) {
         io.to(room.id).emit("room:presence", getPresenceUpdate(room));

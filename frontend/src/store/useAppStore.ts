@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ChatMessage, PresenceUpdate, RoomJoined, UserIdentity } from "@council/shared";
+import type { ChatMessage, PresenceUpdate, RoomJoined, TypingUpdate, UserIdentity } from "@council/shared";
 
 type JoinMode = "push" | "replace";
 
@@ -21,6 +21,7 @@ type AppStore = {
   presenceRoomId: string | null;
   presence: UserIdentity[];
   messages: ChatMessage[];
+  typingBySessionId: Record<string, boolean>;
   draft: string;
   error: string | null;
   submitting: boolean;
@@ -38,6 +39,7 @@ type AppStore = {
   setRouteIdentity: (name: string) => void;
   applyPresence: (payload: PresenceUpdate) => void;
   appendMessage: (payload: ChatMessage) => void;
+  applyTypingUpdate: (payload: TypingUpdate) => void;
   applySystemError: (message: string) => void;
   applyRoomSuccess: (joined: RoomJoined) => void;
   clearRoomSession: () => void;
@@ -63,6 +65,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   presenceRoomId: null,
   presence: [],
   messages: [],
+  typingBySessionId: {},
   draft: "",
   error: null,
   submitting: false,
@@ -116,6 +119,24 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ messages: [...state.messages, payload] });
   },
 
+  applyTypingUpdate: (payload) => {
+    const state = get();
+    const activeRoomId = state.currentRoomId ?? state.pendingJoinRoomId;
+
+    if (!activeRoomId || normalizeRoomId(payload.roomId) !== normalizeRoomId(activeRoomId)) {
+      return;
+    }
+
+    const nextTyping = { ...state.typingBySessionId };
+    if (payload.isTyping) {
+      nextTyping[payload.sessionId] = true;
+    } else {
+      delete nextTyping[payload.sessionId];
+    }
+
+    set({ typingBySessionId: nextTyping });
+  },
+
   applySystemError: (message) => set({ error: message, submitting: false }),
 
   applyRoomSuccess: (joined) => {
@@ -135,6 +156,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       presence: nextPresence,
       presenceRoomId: joined.roomId,
       messages: [],
+      typingBySessionId: {},
       error: null,
       submitting: false,
     });
@@ -148,6 +170,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       presenceRoomId: null,
       presence: [],
       messages: [],
+      typingBySessionId: {},
       draft: "",
       error: null,
       submitting: false,
