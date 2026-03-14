@@ -1,5 +1,12 @@
 import { create } from "zustand";
-import type { ChatMessage, PresenceUpdate, RoomJoined, TypingUpdate, UserIdentity } from "@council/shared";
+import type {
+  ChatMessage,
+  MessageReactionUpdated,
+  PresenceUpdate,
+  RoomJoined,
+  TypingUpdate,
+  UserIdentity,
+} from "@council/shared";
 
 type JoinMode = "push" | "replace";
 
@@ -42,6 +49,7 @@ type AppStore = {
   setRouteIdentity: (name: string) => void;
   applyPresence: (payload: PresenceUpdate) => void;
   appendMessage: (payload: ChatMessage) => void;
+  applyMessageReactionUpdated: (payload: MessageReactionUpdated) => void;
   applyTypingUpdate: (payload: TypingUpdate) => void;
   applySystemError: (message: string) => void;
   applyRoomSuccess: (joined: RoomJoined) => void;
@@ -122,7 +130,26 @@ export const useAppStore = create<AppStore>((set, get) => ({
       return;
     }
 
-    set({ messages: [...state.messages, payload] });
+    set({ messages: [...state.messages, { ...payload, reactions: payload.reactions ?? {} }] });
+  },
+
+  applyMessageReactionUpdated: (payload) => {
+    const state = get();
+
+    if (!state.currentRoomId || normalizeRoomId(payload.roomId) !== normalizeRoomId(state.currentRoomId)) {
+      return;
+    }
+
+    set({
+      messages: state.messages.map((message) =>
+        message.id === payload.messageId
+          ? {
+              ...message,
+              reactions: payload.reactions,
+            }
+          : message,
+      ),
+    });
   },
 
   applyTypingUpdate: (payload) => {

@@ -14,6 +14,7 @@ type RoomScreenProps = {
   onDraftChange: (value: string) => void;
   onSelectReply: (messageId: string) => void;
   onClearReply: () => void;
+  onToggleReaction: (messageId: string, emoji: string) => void;
   onSendMessage: () => void;
 };
 
@@ -36,6 +37,7 @@ export function RoomScreen({
   onDraftChange,
   onSelectReply,
   onClearReply,
+  onToggleReaction,
   onSendMessage,
 }: RoomScreenProps) {
   const highlightTimeoutRef = useRef<number | null>(null);
@@ -116,9 +118,11 @@ export function RoomScreen({
                     message={message}
                     isSelf={message.author.sessionId === currentUser?.sessionId}
                     isHighlighted={highlightedMessageId === message.id}
+                    currentSessionId={currentUser?.sessionId ?? null}
                     replyToMessage={message.replyToMessageId ? messageById.get(message.replyToMessageId) ?? null : null}
                     onReply={onSelectReply}
                     onJumpToMessage={jumpToMessage}
+                    onToggleReaction={onToggleReaction}
                   />
                 ))}
               </ul>

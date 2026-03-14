@@ -2,6 +2,7 @@ import type {
   AckResult,
   CheckRoomInput,
   CreateRoomInput,
+  ReactionToggleInput,
   RoomJoined,
   RoomRef,
   SendMessageInput,
@@ -78,4 +79,8 @@ export function sendMessageRequest(input: SendMessageInput): Promise<{ messageId
 
 export function emitTypingUpdate(input: { roomId: string; isTyping: boolean }) {
   socket.emit("typing:update", input);
+}
+
+export function emitReactionToggle(input: ReactionToggleInput) {
+  socket.emit("reaction:toggle", input);
 }

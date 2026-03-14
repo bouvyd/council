@@ -5,6 +5,7 @@ import { socket } from "./lib/socket";
 import {
   checkRoomRequest,
   createRoomRequest,
+  emitReactionToggle,
   emitTypingUpdate,
   joinRoomRequest,
   leaveRoomRequest,
@@ -166,17 +167,20 @@ function AppShell() {
   useEffect(() => {
     const onPresence = useAppStore.getState().applyPresence;
     const onMessageCreated = useAppStore.getState().appendMessage;
+    const onMessageReactionUpdated = useAppStore.getState().applyMessageReactionUpdated;
     const onTypingUpdate = useAppStore.getState().applyTypingUpdate;
     const onSystemError = (payload: { message: string }) => useAppStore.getState().applySystemError(payload.message);
 
     socket.on("room:presence", onPresence);
     socket.on("message:created", onMessageCreated);
+    socket.on("message:reaction-updated", onMessageReactionUpdated);
     socket.on("typing:update", onTypingUpdate);
     socket.on("system:error", onSystemError);
 
     return () => {
       socket.off("room:presence", onPresence);
       socket.off("message:created", onMessageCreated);
+      socket.off("message:reaction-updated", onMessageReactionUpdated);
       socket.off("typing:update", onTypingUpdate);
       socket.off("system:error", onSystemError);
     };
@@ -297,6 +301,18 @@ function AppShell() {
     resetTypingIdleTimer();
   };
 
+  const handleToggleReaction = (messageId: string, emoji: string) => {
+    if (!currentRoomId) {
+      return;
+    }
+
+    emitReactionToggle({
+      roomId: currentRoomId,
+      messageId,
+      emoji,
+    });
+  };
+
   return (
     <main className="arcade-app">
       <div className="arcade-scanlines" aria-hidden="true" />
@@ -329,6 +345,7 @@ function AppShell() {
             onDraftChange={handleDraftChange}
             onSelectReply={setActiveReplyToMessageId}
             onClearReply={clearActiveReplyToMessageId}
+            onToggleReaction={handleToggleReaction}
             onSendMessage={sendMessage}
           />
         )}

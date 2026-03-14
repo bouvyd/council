@@ -2,6 +2,7 @@ import { removeSocketFromRoom, getPresenceUpdate } from "./roomState";
 import { registerRoomHandlers } from "./handlers/roomHandlers";
 import { registerMessageHandlers } from "./handlers/messageHandlers";
 import { registerTypingHandlers } from "./handlers/typingHandlers";
+import { registerReactionHandlers } from "./handlers/reactionHandlers";
 import type { RoomState, TypedIO } from "./types";
 
 export function registerSocketHandlers(io: TypedIO, rooms: Map<string, RoomState>): void {
@@ -33,6 +34,7 @@ export function registerSocketHandlers(io: TypedIO, rooms: Map<string, RoomState
     registerRoomHandlers(handlerContext);
     registerTypingHandlers(handlerContext);
     registerMessageHandlers(handlerContext);
+    registerReactionHandlers(handlerContext);
 
     socket.on("disconnect", () => {
       emitTypingUpdate(false);

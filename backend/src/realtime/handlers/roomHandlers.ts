@@ -28,6 +28,7 @@ export function registerRoomHandlers({ io, socket, rooms, emitTypingUpdate }: Ha
     rooms.set(roomId, {
       id: roomId,
       users: new Map([[socket.id, user]]),
+      messages: new Map(),
     });
 
     socket.data.roomId = roomId;

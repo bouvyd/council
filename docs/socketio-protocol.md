@@ -62,6 +62,13 @@ This document defines the initial realtime contract for core chat flows.
 ```
 - Ack: none.
 
+### `reaction:toggle`
+- Payload:
+```json
+{ "roomId": "a1b2c3d4", "messageId": "server-id", "emoji": "🔥" }
+```
+- Ack: none.
+
 ## Server -> Client Events
 
 ### `room:presence`
@@ -89,6 +96,21 @@ Broadcast typing status changes in the room.
 Payload shape:
 ```json
 { "roomId": "a1b2c3d4", "sessionId": "socket-id", "isTyping": true }
+```
+
+### `message:reaction-updated`
+Broadcast canonical reaction state for a message in the room.
+
+Payload shape:
+```json
+{
+  "roomId": "a1b2c3d4",
+  "messageId": "server-id",
+  "reactions": {
+    "🔥": ["socket-a", "socket-b"],
+    "😂": ["socket-c"]
+  }
+}
 ```
 
 ### `system:error`

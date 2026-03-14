@@ -40,9 +40,11 @@ export function registerMessageHandlers({ io, socket, rooms, emitTypingUpdate }:
       createdAt: new Date().toISOString(),
       clientMessageId: payload.clientMessageId,
       replyToMessageId: payload.replyToMessageId?.trim() || undefined,
+      reactions: {},
       author: user,
     };
 
+    room.messages.set(message.id, message);
     io.to(room.id).emit("message:created", message);
     callback({ ok: true, data: { messageId: message.id } });
   });

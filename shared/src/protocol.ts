@@ -44,6 +44,12 @@ export type TypingUpdateInput = {
   isTyping: boolean;
 };
 
+export type ReactionToggleInput = {
+  roomId: string;
+  messageId: string;
+  emoji: string;
+};
+
 export type CheckRoomInput = {
   roomId: string;
 };
@@ -55,6 +61,7 @@ export type ChatMessage = {
   createdAt: string;
   clientMessageId?: string;
   replyToMessageId?: string;
+  reactions?: Record<string, string[]>;
   author: UserIdentity;
 };
 
@@ -67,6 +74,12 @@ export type TypingUpdate = {
   roomId: string;
   sessionId: string;
   isTyping: boolean;
+};
+
+export type MessageReactionUpdated = {
+  roomId: string;
+  messageId: string;
+  reactions: Record<string, string[]>;
 };
 
 export interface ClientToServerEvents {
@@ -88,11 +101,13 @@ export interface ClientToServerEvents {
     callback: (result: AckResult<{ messageId: string }>) => void,
   ) => void;
   "typing:update": (payload: TypingUpdateInput) => void;
+  "reaction:toggle": (payload: ReactionToggleInput) => void;
 }
 
 export interface ServerToClientEvents {
   "room:presence": (payload: PresenceUpdate) => void;
   "message:created": (payload: ChatMessage) => void;
+  "message:reaction-updated": (payload: MessageReactionUpdated) => void;
   "typing:update": (payload: TypingUpdate) => void;
   "system:error": (payload: { message: string }) => void;
 }

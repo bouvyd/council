@@ -1,5 +1,6 @@
 import type { Server, Socket } from "socket.io";
 import type {
+  ChatMessage,
   ClientToServerEvents,
   ServerToClientEvents,
   UserIdentity,
@@ -13,6 +14,7 @@ export type SocketData = {
 export type RoomState = {
   id: string;
   users: Map<string, UserIdentity>;
+  messages: Map<string, ChatMessage>;
 };
 
 export type TypedIO = Server<
