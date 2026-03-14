@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { RoomJoined } from "@council/shared";
 import { Navigate, Route, Routes, useMatch, useNavigate } from "react-router-dom";
 import { socket } from "./lib/socket";
@@ -13,6 +13,7 @@ function AppShell() {
   const navigate = useNavigate();
   const routeMatch = useMatch("/council/:roomId");
   const routeRoomId = routeMatch?.params.roomId ?? null;
+  const suppressRouteAutoJoinRef = useRef(false);
 
   const {
     displayName,
@@ -71,6 +72,15 @@ function AppShell() {
   };
 
   useEffect(() => {
+    if (suppressRouteAutoJoinRef.current) {
+      if (!routeRoomId) {
+        suppressRouteAutoJoinRef.current = false;
+        clearRouteTarget();
+      }
+
+      return;
+    }
+
     if (!routeRoomId) {
       clearRouteTarget();
       return;
@@ -149,18 +159,21 @@ function AppShell() {
   };
 
   const leaveRoom = () => {
+    suppressRouteAutoJoinRef.current = true;
     setPendingJoinRoomId(null);
     setSubmitting(true);
 
     socket.emit("room:leave", (result) => {
       if (!result.ok) {
+        suppressRouteAutoJoinRef.current = false;
         setError(result.error);
         setSubmitting(false);
         return;
       }
 
       clearRoomSession();
-      navigate("/");
+      clearRouteTarget();
+      navigate("/", { replace: true });
     });
   };
 
