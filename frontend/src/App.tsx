@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChatMessage, PresenceUpdate, RoomJoined, UserIdentity } from "@council/shared";
 import { Navigate, Route, Routes, useMatch, useNavigate } from "react-router-dom";
 import { socket } from "./lib/socket";
@@ -19,12 +19,31 @@ function AppShell() {
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<UserIdentity | null>(null);
   const [targetRouteRoomId, setTargetRouteRoomId] = useState<string | null>(null);
+  const [pendingJoinRoomId, setPendingJoinRoomId] = useState<string | null>(null);
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
+  const [presenceRoomId, setPresenceRoomId] = useState<string | null>(null);
   const [presence, setPresence] = useState<UserIdentity[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const currentRoomIdRef = useRef<string | null>(null);
+  const pendingJoinRoomIdRef = useRef<string | null>(null);
+  const presenceRoomIdRef = useRef<string | null>(null);
+
+  const normalizeRoomId = (value: string | null): string | null => value?.trim().toLowerCase() ?? null;
+
+  useEffect(() => {
+    currentRoomIdRef.current = currentRoomId;
+  }, [currentRoomId]);
+
+  useEffect(() => {
+    pendingJoinRoomIdRef.current = pendingJoinRoomId;
+  }, [pendingJoinRoomId]);
+
+  useEffect(() => {
+    presenceRoomIdRef.current = presenceRoomId;
+  }, [presenceRoomId]);
 
   useEffect(() => {
     if (!routeRoomId) {
@@ -33,7 +52,7 @@ function AppShell() {
       return;
     }
 
-    if (currentRoomId === routeRoomId) {
+    if (normalizeRoomId(currentRoomId) === normalizeRoomId(routeRoomId)) {
       return;
     }
 
@@ -55,15 +74,18 @@ function AppShell() {
 
   useEffect(() => {
     const onPresence = (payload: PresenceUpdate) => {
-      if (!currentRoomId || payload.roomId !== currentRoomId) {
+      const activeRoomId = currentRoomIdRef.current ?? pendingJoinRoomIdRef.current;
+
+      if (!activeRoomId || normalizeRoomId(payload.roomId) !== normalizeRoomId(activeRoomId)) {
         return;
       }
 
       setPresence(payload.users);
+      setPresenceRoomId(payload.roomId);
     };
 
     const onMessageCreated = (payload: ChatMessage) => {
-      if (!currentRoomId || payload.roomId !== currentRoomId) {
+      if (!currentRoomIdRef.current || normalizeRoomId(payload.roomId) !== normalizeRoomId(currentRoomIdRef.current)) {
         return;
       }
 
@@ -84,16 +106,24 @@ function AppShell() {
       socket.off("message:created", onMessageCreated);
       socket.off("system:error", onSystemError);
     };
-  }, [currentRoomId]);
+  }, []);
 
   const handleRoomSuccess = (joined: RoomJoined) => {
     saveRoomIdentity(joined.roomId, joined.user.displayName);
+    setPendingJoinRoomId(null);
     setCurrentRoomId(joined.roomId);
     setCurrentUser(joined.user);
     setRoomIdInput(joined.roomId);
     setTargetRouteRoomId(null);
     setIsNameModalOpen(false);
-    setPresence([joined.user]);
+    setPresence((current) => {
+      if (normalizeRoomId(presenceRoomIdRef.current) === normalizeRoomId(joined.roomId)) {
+        return current;
+      }
+
+      return [joined.user];
+    });
+    setPresenceRoomId(joined.roomId);
     setMessages([]);
     setError(null);
     setSubmitting(false);
@@ -121,11 +151,13 @@ function AppShell() {
   };
 
   const joinRoomById = (name: string, roomId: string, mode: "push" | "replace" = "push") => {
+    setPendingJoinRoomId(normalizeRoomId(roomId));
     setSubmitting(true);
     setError(null);
 
     socket.emit("room:join", { displayName: name, roomId }, (result) => {
       if (!result.ok) {
+        setPendingJoinRoomId(null);
         setError(result.error);
         setSubmitting(false);
         return;
@@ -161,6 +193,7 @@ function AppShell() {
   };
 
   const leaveRoom = () => {
+    setPendingJoinRoomId(null);
     setSubmitting(true);
 
     socket.emit("room:leave", (result) => {
@@ -172,6 +205,7 @@ function AppShell() {
 
       setCurrentRoomId(null);
       setCurrentUser(null);
+      setPresenceRoomId(null);
       setPresence([]);
       setMessages([]);
       setDraft("");
