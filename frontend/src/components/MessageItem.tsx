@@ -77,40 +77,48 @@ export function MessageItem({
   return (
     <li
       id={`message-${message.id}`}
-      className={`message-item ${isSelf ? "message-item-self" : ""} ${isHighlighted ? "message-item-highlighted" : ""}`.trim()}
+      className={`group border-l bg-surface px-[0.62rem] py-[0.55rem] transition-[border-color,box-shadow,background-color] duration-150 ease-in-out ${isSelf ? "ml-[0.5rem] border-l-[3px] border-message-line" : "border-l border-message-line"} ${isHighlighted ? "border-primary-bright bg-primary-soft-10" : ""}`.trim()}
       key={message.id}
     >
-      <div className="message-meta">
+      <div className="mb-[0.42rem] flex items-center justify-between gap-[0.45rem] text-text-muted">
         <span>{message.author.displayName}</span>
-        <div className="message-meta-right">
+        <div className="inline-flex items-center gap-[0.34rem]">
           <button
             ref={reactButtonRef}
-            className="message-meta-action message-react-button"
+            className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.42rem] py-[0.16rem] text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none ${isSelf ? "opacity-100" : "opacity-0 group-hover:opacity-100 max-[900px]:opacity-100"}`}
             onClick={() => setIsPickerOpen((current) => !current)}
             type="button"
           >
             react
           </button>
-          <button className="message-meta-action message-reply-button" type="button" onClick={() => onReply(message.id)}>
+          <button
+            className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.42rem] py-[0.16rem] text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none ${isSelf ? "opacity-100" : "opacity-0 group-hover:opacity-100 max-[900px]:opacity-100"}`}
+            type="button"
+            onClick={() => onReply(message.id)}
+          >
             reply
           </button>
-          <span className="message-meta-time">{formatTime(message.createdAt)}</span>
+          <span className="whitespace-nowrap">{formatTime(message.createdAt)}</span>
         </div>
       </div>
 
       {message.replyToMessageId ? (
-        <div className="message-reply-context">
+        <div className="mb-[0.45rem] border-l-2 border-reply-border bg-reply-bg px-[0.45rem] py-[0.25rem]">
           {replyToMessage ? (
-            <button className="message-reply-link" type="button" onClick={() => onJumpToMessage(replyToMessage.id)}>
+            <button
+              className="cursor-pointer border-0 bg-transparent p-0 text-left text-text-muted hover:text-primary-bright hover:underline focus-visible:text-primary-bright focus-visible:underline focus-visible:outline-none"
+              type="button"
+              onClick={() => onJumpToMessage(replyToMessage.id)}
+            >
               replying to: {replyPreview}
             </button>
           ) : (
-            <span className="message-reply-missing">replying to: {replyPreview}</span>
+            <span className="text-text-muted">replying to: {replyPreview}</span>
           )}
         </div>
       ) : null}
 
-      <div className="message-text markdown-content">
+      <div className="markdown-content m-0 leading-[1.45] text-text">
         <ReactMarkdown skipHtml>{message.text}</ReactMarkdown>
       </div>
 

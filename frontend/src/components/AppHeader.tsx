@@ -7,6 +7,9 @@ type AppHeaderProps = {
 };
 
 export function AppHeader({ currentRoomId, submitting, onLeaveRoom }: AppHeaderProps) {
+  const arcadeButtonClass =
+    "cursor-pointer rounded-[var(--radius)] border border-btn-border bg-linear-to-b from-btn-start to-btn-end p-2 font-semibold leading-[1.4] tracking-[0.05em] text-btn-text hover:not-disabled:brightness-110 hover:not-disabled:shadow-primary-glow disabled:cursor-not-allowed disabled:opacity-45";
+
   const [inviteStatus, setInviteStatus] = useState<"idle" | "copied" | "error">("idle");
 
   useEffect(() => {
@@ -47,26 +50,23 @@ export function AppHeader({ currentRoomId, submitting, onLeaveRoom }: AppHeaderP
   };
 
   return (
-    <header className="app-header app-header-row">
-      <div className="app-header-main">
-        <h1 className="app-title">{currentRoomId ? `council #${currentRoomId}` : "council"}</h1>
+    <header className="mb-5 flex flex-col justify-between gap-3 min-[901px]:flex-row min-[901px]:items-center">
+      <div className="flex flex-wrap items-center gap-[0.55rem]">
+        <h1 className="title-glow m-0 text-4xl font-semibold leading-[1.4] text-primary">
+          {currentRoomId ? `council #${currentRoomId}` : "council"}
+        </h1>
         {currentRoomId ? (
-          <button className="arcade-button" onClick={copyInviteLink} type="button">
+          <button className={arcadeButtonClass} onClick={copyInviteLink} type="button">
             {inviteStatus === "copied" ? "copied!" : "invite"}
           </button>
         ) : null}
       </div>
       {currentRoomId ? (
-        <button
-          className="arcade-button header-leave"
-          onClick={onLeaveRoom}
-          type="button"
-          disabled={submitting}
-        >
+        <button className={`${arcadeButtonClass} shrink-0`} onClick={onLeaveRoom} type="button" disabled={submitting}>
           leave room
         </button>
       ) : null}
-      {inviteStatus === "error" ? <span className="header-feedback">copy failed</span> : null}
+      {inviteStatus === "error" ? <span className="text-danger">copy failed</span> : null}
     </header>
   );
 }

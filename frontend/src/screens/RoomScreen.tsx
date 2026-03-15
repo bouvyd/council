@@ -40,6 +40,9 @@ export function RoomScreen({
   onToggleReaction,
   onSendMessage,
 }: RoomScreenProps) {
+  const panelClass =
+    "rounded-[var(--radius)] border border-panel-border bg-panel shadow-panel";
+
   const highlightTimeoutRef = useRef<number | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
@@ -84,20 +87,30 @@ export function RoomScreen({
   };
 
   return (
-    <section className="chat-grid">
-      <aside className="panel panel-sidebar">
-        <p>take a seat, <span className="session-user">{currentUser?.displayName}</span></p>
+    <section className="grid min-h-0 flex-1 gap-[0.85rem] grid-cols-1 min-[901px]:grid-cols-[290px_minmax(0,1fr)]">
+      <aside className={`${panelClass} order-2 p-[0.95rem] min-[901px]:order-1`}>
+        <p>
+          take a seat, {" "}
+          <span className="mt-[0.8rem] text-primary [text-shadow:0_0_8px_var(--primary-soft)]">
+            {currentUser?.displayName}
+          </span>
+        </p>
 
-        <div className="presence-block">
-          <h3 className="panel-title">who&apos;s there</h3>
+        <div className="mt-[1.1rem]">
+          <h3 className="m-0 font-semibold uppercase tracking-[0.08em] text-text-muted">who&apos;s there</h3>
           {otherUsers.length === 0 ? (
-            <p className="empty-state">it&apos;s just you for now</p>
+            <p className="m-0 text-text-muted">it&apos;s just you for now</p>
           ) : (
-            <ul className="presence-list">
+            <ul className="mt-[0.7rem] grid list-none gap-[0.45rem] p-0">
               {otherUsers.map((user) => (
-                <li className="presence-item" key={user.sessionId}>
+                <li
+                  className="flex items-baseline justify-between rounded-[var(--radius)] border border-presence-border bg-surface-muted px-[0.52rem] py-[0.38rem] text-text"
+                  key={user.sessionId}
+                >
                   {user.displayName}
-                  {typingBySessionId[user.sessionId] ? <span className="presence-typing">typing...</span> : null}
+                  {typingBySessionId[user.sessionId] ? (
+                    <span className="tracking-[0.02em] text-text-muted">typing...</span>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -105,13 +118,13 @@ export function RoomScreen({
         </div>
       </aside>
 
-      <div className="panel panel-chat">
-        <div className="message-container">
-          <div className="message-scroll">
+      <div className={`${panelClass} flex flex-col order-1 min-h-0 p-[0.95rem] min-[901px]:order-2 min-[901px]:min-h-[62vh]`}>
+        <div className="min-h-0 flex-1 rounded-[var(--radius)] p-[0.55rem]">
+          <div className="h-full overflow-y-auto pr-[0.2rem]">
             {messages.length === 0 ? (
-              <p className="empty-state">No messages yet.</p>
+              <p className="m-0 text-text-muted">No messages yet.</p>
             ) : (
-              <ul className="message-list">
+              <ul className="m-0 grid list-none gap-[0.62rem] p-0">
                 {messages.map((message) => (
                   <MessageItem
                     key={message.id}
