@@ -98,6 +98,7 @@ export function RoomScreen({
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [miniPlayerShareId, setMiniPlayerShareId] = useState<string | null>(null);
   const miniVideoRef = useRef<HTMLVideoElement | null>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const otherUsers = presence.filter((user) => user.sessionId !== currentUser?.sessionId);
   const canCreateVoiceChannel = voiceChannels.length < 3;
@@ -125,6 +126,16 @@ export function RoomScreen({
     };
   }, []);
 
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => {
+      messageInputRef.current?.focus();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(id);
+    };
+  }, []);
+
     useEffect(() => {
       if (!miniVideoRef.current) {
         return;
@@ -133,6 +144,28 @@ export function RoomScreen({
       miniVideoRef.current.srcObject = watchedScreenStream;
       miniVideoRef.current.muted = isWatchedScreenShareAudioMuted;
     }, [isMiniPlayer, watchedScreenStream, isWatchedScreenShareAudioMuted]);
+
+    const focusMessageComposer = () => {
+      window.requestAnimationFrame(() => {
+        messageInputRef.current?.focus();
+      });
+    };
+
+    const handleSelectReply = (messageId: string) => {
+      onSelectReply(messageId);
+      focusMessageComposer();
+    };
+
+    const handleStopWatchingScreen = () => {
+      setMiniPlayerShareId(null);
+      onStopWatchingScreen();
+      focusMessageComposer();
+    };
+
+    const handleMinimizePlayer = () => {
+      setMiniPlayerShareId(activeScreenShareId);
+      focusMessageComposer();
+    };
 
   const jumpToMessage = (messageId: string) => {
     const target = document.getElementById(`message-${messageId}`);
@@ -420,8 +453,8 @@ export function RoomScreen({
                 hasAudio={selectedScreenShare.hasAudio}
                 isAudioMuted={isWatchedScreenShareAudioMuted}
                 onToggleAudioMute={onToggleWatchedScreenAudioMute}
-                onMiniPlayer={() => setMiniPlayerShareId(activeScreenShareId)}
-                onStopWatching={onStopWatchingScreen}
+                onMiniPlayer={handleMinimizePlayer}
+                onStopWatching={handleStopWatchingScreen}
               />
             ) : (
               <div className="flex h-full min-h-0 flex-col justify-center rounded-[var(--radius)] border border-panel-border bg-surface-muted p-[0.75rem] text-center">
@@ -431,7 +464,7 @@ export function RoomScreen({
                   <button
                     className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.55rem] py-[0.28rem] text-[0.78rem] text-text-muted hover:border-primary hover:text-primary-bright"
                     type="button"
-                    onClick={onStopWatchingScreen}
+                    onClick={handleStopWatchingScreen}
                   >
                     stop watching
                   </button>
@@ -453,7 +486,7 @@ export function RoomScreen({
                         isHighlighted={highlightedMessageId === message.id}
                         currentSessionId={currentUser?.sessionId ?? null}
                         replyToMessage={message.replyToMessageId ? messageById.get(message.replyToMessageId) ?? null : null}
-                        onReply={onSelectReply}
+                        onReply={handleSelectReply}
                         onJumpToMessage={jumpToMessage}
                         onToggleReaction={onToggleReaction}
                       />
@@ -499,7 +532,7 @@ export function RoomScreen({
                   <button
                     className="cursor-pointer rounded border border-control-border bg-surface-control px-[0.35rem] py-[0.15rem] text-[0.65rem] text-text-muted hover:border-primary hover:text-primary-bright"
                     type="button"
-                    onClick={onStopWatchingScreen}
+                    onClick={handleStopWatchingScreen}
                   >
                     ✕
                   </button>
@@ -513,6 +546,7 @@ export function RoomScreen({
           draft={draft}
           submitting={submitting}
           replyPreview={replyPreview}
+          inputRef={messageInputRef}
           onDraftChange={onDraftChange}
           onClearReply={onClearReply}
           onSend={onSendMessage}

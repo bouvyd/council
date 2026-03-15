@@ -1,9 +1,10 @@
-import type { FormEvent, KeyboardEvent } from "react";
+import type { FormEvent, KeyboardEvent, RefObject } from "react";
 
 type MessageComposerProps = {
   draft: string;
   submitting: boolean;
   replyPreview: string | null;
+  inputRef?: RefObject<HTMLTextAreaElement | null>;
   onDraftChange: (value: string) => void;
   onClearReply: () => void;
   onSend: () => void;
@@ -13,6 +14,7 @@ export function MessageComposer({
   draft,
   submitting,
   replyPreview,
+  inputRef,
   onDraftChange,
   onClearReply,
   onSend,
@@ -65,6 +67,7 @@ export function MessageComposer({
       </label>
       <textarea
         id="message-input"
+        ref={inputRef}
         className={inputClass}
         value={draft}
         onChange={(event) => onDraftChange(event.target.value)}
