@@ -51,7 +51,7 @@ export function MessageComposer({
     <form className="mt-[0.7rem] grid grid-cols-1 gap-[0.45rem] min-[901px]:grid-cols-[1fr_auto]" onSubmit={handleSubmit}>
       {replyPreview ? (
         <div className="col-span-full flex items-center justify-between gap-[0.6rem] border-l-2 border-reply-border bg-reply-bg px-[0.5rem] py-[0.32rem] text-text-muted">
-          <span>replying to: {replyPreview}</span>
+          <span className="text-xs">replying to: {replyPreview}</span>
           <button
             className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.4rem] py-[0.12rem] text-text-muted hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none"
             type="button"

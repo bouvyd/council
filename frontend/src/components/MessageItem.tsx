@@ -78,23 +78,23 @@ export function MessageItem({
   return (
     <li
       id={`message-${message.id}`}
-      className={`group border-l bg-surface px-[0.62rem] py-[0.55rem] transition-[border-color,box-shadow,background-color] duration-150 ease-in-out ${isSelf ? "border-l-[3px] border-message-line" : "border-l border-message-line"} ${isHighlighted ? " border-primary-bright bg-primary-soft-10" : ""} ${isSystemMessage ? "border-l-0 pl-0 bg-primary-soft-10" : ""}`.trim()}
+      className={`group border-l bg-surface px-2 py-1 transition-[border-color,box-shadow,background-color] duration-150 ease-in-out ${isSelf ? "border-l-[3px] border-message-line" : "border-l border-message-line"} ${isHighlighted ? " border-primary-bright bg-primary-soft-10" : ""} ${isSystemMessage ? "border-l-0 pl-0 bg-primary-soft-10" : ""}`.trim()}
       key={message.id}
     >
       {!isSystemMessage ? (
-        <div className="mb-[0.42rem] flex items-center justify-between gap-[0.45rem] text-text-muted">
+        <div className="flex items-center justify-between gap-1 text-text-muted">
           <span>{message.author.displayName}</span>
           <div className="inline-flex items-center gap-[0.34rem]">
             <button
               ref={reactButtonRef}
-              className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.42rem] py-[0.16rem] text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none opacity-0 group-hover:opacity-100 max-[900px]:opacity-100`}
+              className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none opacity-0 group-hover:opacity-100 max-[900px]:opacity-100`}
               onClick={() => setIsPickerOpen((current) => !current)}
               type="button"
             >
               react
             </button>
             <button
-              className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.42rem] py-[0.16rem] text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none opacity-0 group-hover:opacity-100 max-[900px]:opacity-100`}
+              className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none opacity-0 group-hover:opacity-100 max-[900px]:opacity-100`}
               type="button"
               onClick={() => onReply(message.id)}
             >
@@ -106,17 +106,17 @@ export function MessageItem({
       ) : null}
 
       {!isSystemMessage && message.replyToMessageId ? (
-        <div className="mb-[0.45rem] border-l-2 border-reply-border bg-reply-bg px-[0.45rem] py-[0.25rem]">
+        <div className="py-[0.15rem]">
           {replyToMessage ? (
             <button
-              className="cursor-pointer border-0 bg-transparent p-0 text-left text-text-muted hover:text-primary-bright hover:underline focus-visible:text-primary-bright focus-visible:underline focus-visible:outline-none"
+              className="cursor-pointer border-0 bg-transparent p-0 text-left text-sm text-text-muted hover:text-primary-bright hover:underline focus-visible:text-primary-bright focus-visible:underline focus-visible:outline-none"
               type="button"
               onClick={() => onJumpToMessage(replyToMessage.id)}
             >
-              replying to: {replyPreview}
+              <span className="text-xs">re: {replyPreview}</span>
             </button>
           ) : (
-            <span className="text-text-muted">replying to: {replyPreview}</span>
+            <span className="text-xs text-text-muted">re: {replyPreview}</span>
           )}
         </div>
       ) : null}
