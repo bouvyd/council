@@ -39,7 +39,7 @@ export function AppHeader({
             aria-expanded={isInfoPanelOpen}
             aria-controls="room-info-panel"
           >
-            info
+            people &amp; voice
           </button>
         ) : null}
       </div>

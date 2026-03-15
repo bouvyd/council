@@ -98,6 +98,7 @@ export function RoomScreen({
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [miniPlayerShareId, setMiniPlayerShareId] = useState<string | null>(null);
   const miniVideoRef = useRef<HTMLVideoElement | null>(null);
+  const miniVideoMobileRef = useRef<HTMLVideoElement | null>(null);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const otherUsers = presence.filter((user) => user.sessionId !== currentUser?.sessionId);
@@ -136,14 +137,16 @@ export function RoomScreen({
     };
   }, []);
 
-    useEffect(() => {
-      if (!miniVideoRef.current) {
-        return;
+  useEffect(() => {
+    for (const ref of [miniVideoRef, miniVideoMobileRef]) {
+      if (!ref.current) {
+        continue;
       }
 
-      miniVideoRef.current.srcObject = watchedScreenStream;
-      miniVideoRef.current.muted = isWatchedScreenShareAudioMuted;
-    }, [isMiniPlayer, watchedScreenStream, isWatchedScreenShareAudioMuted]);
+      ref.current.srcObject = watchedScreenStream;
+      ref.current.muted = isWatchedScreenShareAudioMuted;
+    }
+  }, [isMiniPlayer, watchedScreenStream, isWatchedScreenShareAudioMuted]);
 
     const focusMessageComposer = () => {
       window.requestAnimationFrame(() => {
@@ -444,6 +447,50 @@ export function RoomScreen({
       </aside>
 
       <div className={`${panelClass} flex flex-col order-1 min-h-0 overflow-hidden p-[0.95rem] min-[901px]:order-2`}>
+        {isMiniPlayer && selectedScreenShare ? (
+          <div className="mb-[0.55rem] overflow-hidden rounded-[var(--radius)] border border-panel-border bg-black shadow-[0_4px_20px_rgba(0,0,0,0.55)] min-[901px]:hidden">
+            {watchedScreenStream ? (
+              <video
+                ref={miniVideoMobileRef}
+                className="aspect-video w-full bg-black object-contain"
+                autoPlay
+                playsInline
+              />
+            ) : (
+              <div className="flex aspect-video items-center justify-center bg-black/60">
+                <p className="m-0 text-[0.75rem] text-text-muted">Connecting…</p>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-[0.3rem] bg-surface-muted/90 px-[0.4rem] py-[0.28rem]">
+              <span className="truncate text-[0.7rem] text-text-muted">{selectedScreenShare.displayName}</span>
+              <div className="flex shrink-0 items-center gap-[0.25rem]">
+                {selectedScreenShare.hasAudio ? (
+                  <button
+                    className="cursor-pointer rounded border border-control-border bg-surface-control px-[0.35rem] py-[0.15rem] text-[0.65rem] text-text-muted hover:border-primary hover:text-primary-bright"
+                    type="button"
+                    onClick={onToggleWatchedScreenAudioMute}
+                  >
+                    {isWatchedScreenShareAudioMuted ? "unmute" : "mute"}
+                  </button>
+                ) : null}
+                <button
+                  className="cursor-pointer rounded border border-control-border bg-surface-control px-[0.35rem] py-[0.15rem] text-[0.65rem] text-text-muted hover:border-primary hover:text-primary-bright"
+                  type="button"
+                  onClick={() => setMiniPlayerShareId(null)}
+                >
+                  expand
+                </button>
+                <button
+                  className="cursor-pointer rounded border border-control-border bg-surface-control px-[0.35rem] py-[0.15rem] text-[0.65rem] text-text-muted hover:border-primary hover:text-primary-bright"
+                  type="button"
+                  onClick={handleStopWatchingScreen}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
         <div className="relative min-h-0 flex-1 rounded-[var(--radius)] p-[0.55rem]">
           {selectedScreenShare && !isMiniPlayer ? (
             watchedScreenStream ? (
@@ -497,7 +544,7 @@ export function RoomScreen({
             </div>
           )}
           {isMiniPlayer && selectedScreenShare ? (
-            <div className="absolute top-[0.55rem] right-[0.55rem] z-10 w-[600px] overflow-hidden rounded-[var(--radius)] border border-panel-border bg-black shadow-[0_4px_20px_rgba(0,0,0,0.55)]">
+            <div className="hidden min-[901px]:block absolute top-[0.55rem] right-[0.55rem] z-10 w-[600px] max-w-full overflow-hidden rounded-[var(--radius)] border border-panel-border bg-black shadow-[0_4px_20px_rgba(0,0,0,0.55)]">
               {watchedScreenStream ? (
                 <video
                   ref={miniVideoRef}
