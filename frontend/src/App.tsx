@@ -377,12 +377,12 @@ function AppShell() {
   };
 
   return (
-    <main className="relative min-h-screen min-h-[100dvh] overflow-hidden">
+    <main className="relative h-screen min-h-screen h-[100dvh] overflow-hidden">
       <div
         className="scanlines-bg pointer-events-none absolute inset-0 opacity-[0.18]"
         aria-hidden="true"
       />
-      <div className="relative z-[1] m-0 flex min-h-screen min-h-[100dvh] w-full max-w-none flex-col px-[1.1rem] pb-[2.8rem] pt-[2.2rem]">
+      <div className="relative z-[1] m-0 flex h-screen min-h-screen h-[100dvh] min-h-0 w-full max-w-none flex-col overflow-hidden px-[1.1rem] pb-[2.8rem] pt-[2.2rem]">
         <AppHeader
           currentRoomId={currentRoomId}
           submitting={submitting}

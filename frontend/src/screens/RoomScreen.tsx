@@ -101,7 +101,7 @@ export function RoomScreen({
   };
 
   return (
-    <section className="grid min-h-0 flex-1 gap-[0.85rem] grid-cols-1 min-[901px]:grid-cols-[290px_minmax(0,1fr)]">
+    <section className="grid min-h-0 flex-1 overflow-hidden gap-[0.85rem] grid-cols-1 min-[901px]:grid-cols-[290px_minmax(0,1fr)]">
       {isInfoPanelOpen ? (
         <button
           className="fixed inset-0 z-20 bg-black/45 min-[901px]:hidden"
@@ -113,7 +113,7 @@ export function RoomScreen({
 
       <aside
         id="room-info-panel"
-        className={`${panelClass} fixed inset-y-0 left-0 z-30 w-[min(88vw,320px)] overflow-y-auto p-[0.95rem] transition-transform duration-200 ease-out min-[901px]:static min-[901px]:order-1 min-[901px]:z-auto min-[901px]:w-auto min-[901px]:translate-x-0 min-[901px]:overflow-visible min-[901px]:transition-none ${isInfoPanelOpen ? "translate-x-0" : "-translate-x-full min-[901px]:translate-x-0"}`}
+        className={`${panelClass} fixed inset-y-0 left-0 z-30 w-[min(88vw,320px)] overflow-y-auto p-[0.95rem] transition-transform duration-200 ease-out min-[901px]:static min-[901px]:order-1 min-[901px]:z-auto min-[901px]:h-full min-[901px]:max-h-full min-[901px]:w-auto min-[901px]:translate-x-0 min-[901px]:overflow-y-auto min-[901px]:transition-none ${isInfoPanelOpen ? "translate-x-0" : "-translate-x-full min-[901px]:translate-x-0"}`}
       >
         <div className="mb-[0.75rem] flex items-center justify-between min-[901px]:hidden">
           <h3 className="m-0 font-bold tracking-[0.08em] text-text-muted">room info</h3>
@@ -167,28 +167,30 @@ export function RoomScreen({
         </div>
       </aside>
 
-      <div className={`${panelClass} flex flex-col order-1 min-h-0 p-[0.95rem] min-[901px]:order-2 min-[901px]:min-h-[62vh]`}>
+      <div className={`${panelClass} flex flex-col order-1 min-h-0 overflow-hidden p-[0.95rem] min-[901px]:order-2`}>
         <div className="min-h-0 flex-1 rounded-[var(--radius)] p-[0.55rem]">
-          <div className="h-full overflow-y-auto pr-[0.2rem]">
-            {messages.length === 0 ? (
-              <p className="m-0 text-text-muted">No messages yet.</p>
-            ) : (
-              <ul className="m-0 grid list-none gap-[0.62rem] p-0">
-                {messages.map((message) => (
-                  <MessageItem
-                    key={message.id}
-                    message={message}
-                    isSelf={message.author.sessionId === currentUser?.sessionId}
-                    isHighlighted={highlightedMessageId === message.id}
-                    currentSessionId={currentUser?.sessionId ?? null}
-                    replyToMessage={message.replyToMessageId ? messageById.get(message.replyToMessageId) ?? null : null}
-                    onReply={onSelectReply}
-                    onJumpToMessage={jumpToMessage}
-                    onToggleReaction={onToggleReaction}
-                  />
-                ))}
-              </ul>
-            )}
+          <div className="h-full overflow-y-auto overflow-x-hidden pr-[0.2rem]">
+            <div className="ms-0 w-full">
+              {messages.length === 0 ? (
+                <p className="m-0 text-text-muted">No messages yet.</p>
+              ) : (
+                <ul className="m-0 grid list-none gap-[0.62rem] p-0">
+                  {messages.map((message) => (
+                    <MessageItem
+                      key={message.id}
+                      message={message}
+                      isSelf={message.author.sessionId === currentUser?.sessionId}
+                      isHighlighted={highlightedMessageId === message.id}
+                      currentSessionId={currentUser?.sessionId ?? null}
+                      replyToMessage={message.replyToMessageId ? messageById.get(message.replyToMessageId) ?? null : null}
+                      onReply={onSelectReply}
+                      onJumpToMessage={jumpToMessage}
+                      onToggleReaction={onToggleReaction}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
 

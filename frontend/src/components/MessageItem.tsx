@@ -118,7 +118,7 @@ export function MessageItem({
         </div>
       ) : null}
 
-      <div className="markdown-content m-0 leading-[1.45] text-text">
+      <div className="markdown-content m-0 leading-[1.45] text-text max-w-[1100px]">
         <ReactMarkdown skipHtml>{message.text}</ReactMarkdown>
       </div>
 
