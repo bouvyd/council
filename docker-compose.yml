@@ -1,0 +1,10 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    env_file:
+      - ${COUNCIL_BACKEND_ENV_FILE:-/opt/council/env/backend.env}
+    ports:
+      - "127.0.0.1:3009:3001"
+    restart: unless-stopped
