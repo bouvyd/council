@@ -106,10 +106,18 @@ export type VoiceChannelRef = {
   channelId: string;
 };
 
+export type ActiveScreenShare = VoiceChannelRef & {
+  shareId: string;
+  sessionId: string;
+  displayName: string;
+  hasAudio: boolean;
+};
+
 export type VoiceChannel = VoiceChannelRef & {
   name: string;
   isDefault: boolean;
   participants: UserIdentity[];
+  activeScreenShares: ActiveScreenShare[];
 };
 
 export type VoiceChannelsUpdate = {
@@ -129,6 +137,15 @@ export type VoiceChannelCreateInput = {
 export type VoiceChannelJoinInput = VoiceChannelRef;
 
 export type VoiceChannelLeaveInput = VoiceChannelRef;
+
+export type ScreenShareStartInput = VoiceChannelRef & {
+  shareId: string;
+  hasAudio: boolean;
+};
+
+export type ScreenShareStopInput = VoiceChannelRef & {
+  shareId: string;
+};
 
 export type VoiceSignal =
   | {
@@ -155,6 +172,35 @@ export type VoiceSignalRelayInput = VoiceChannelRef & {
 export type VoiceSignalRelayed = VoiceChannelRef & {
   fromSessionId: string;
   signal: VoiceSignal;
+};
+
+export type ScreenSignal =
+  | {
+      type: "offer";
+      sdp: string;
+    }
+  | {
+      type: "answer";
+      sdp: string;
+    }
+  | {
+      type: "ice";
+      candidate: string;
+      sdpMid?: string | null;
+      sdpMLineIndex?: number | null;
+      usernameFragment?: string | null;
+    };
+
+export type ScreenSignalRelayInput = VoiceChannelRef & {
+  shareId: string;
+  toSessionId: string;
+  signal: ScreenSignal;
+};
+
+export type ScreenSignalRelayed = VoiceChannelRef & {
+  shareId: string;
+  fromSessionId: string;
+  signal: ScreenSignal;
 };
 
 export interface ClientToServerEvents {
@@ -198,6 +244,15 @@ export interface ClientToServerEvents {
     callback: (result: AckResult<VoiceChannelsUpdate>) => void,
   ) => void;
   "voice:signal": (payload: VoiceSignalRelayInput) => void;
+  "screen:share:start": (
+    payload: ScreenShareStartInput,
+    callback: (result: AckResult<VoiceChannelsUpdate>) => void,
+  ) => void;
+  "screen:share:stop": (
+    payload: ScreenShareStopInput,
+    callback: (result: AckResult<VoiceChannelsUpdate>) => void,
+  ) => void;
+  "screen:signal": (payload: ScreenSignalRelayInput) => void;
 }
 
 export interface ServerToClientEvents {
@@ -208,4 +263,5 @@ export interface ServerToClientEvents {
   "system:error": (payload: { message: string }) => void;
   "voice:channels:updated": (payload: VoiceChannelsUpdate) => void;
   "voice:signal": (payload: VoiceSignalRelayed) => void;
+  "screen:signal": (payload: ScreenSignalRelayed) => void;
 }

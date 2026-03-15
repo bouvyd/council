@@ -182,6 +182,7 @@ export function registerRoomHandlers({ io, socket, rooms, emitTypingUpdate }: Ha
     }
 
     io.to(room.id).emit("room:presence", getPresenceUpdate(room));
+    io.to(room.id).emit("voice:channels:updated", getVoiceChannelsUpdate(room));
     callback({ ok: true, data: { roomId: room.id, user } });
   });
 }

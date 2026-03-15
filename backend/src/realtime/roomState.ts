@@ -17,9 +17,10 @@ export function createDefaultVoiceChannels(): Map<string, VoiceChannelState> {
       DEFAULT_VOICE_CHANNEL_ID,
       {
         id: DEFAULT_VOICE_CHANNEL_ID,
-        name: "Main",
+        name: "main",
         isDefault: true,
         participantSessionIds: new Set(),
+        activeScreenShares: new Map(),
       },
     ],
   ]);
@@ -41,6 +42,23 @@ export function getVoiceChannelsUpdate(room: RoomState): VoiceChannelsUpdate {
     participants: [...channel.participantSessionIds]
       .map((sessionId) => room.users.get(sessionId))
       .filter((user): user is NonNullable<typeof user> => Boolean(user)),
+    activeScreenShares: [...channel.activeScreenShares.values()]
+      .map((share) => {
+        const owner = room.users.get(share.ownerSessionId);
+        if (!owner) {
+          return null;
+        }
+
+        return {
+          roomId: room.id,
+          channelId: channel.id,
+          shareId: share.id,
+          sessionId: owner.sessionId,
+          displayName: owner.displayName,
+          hasAudio: share.hasAudio,
+        };
+      })
+      .filter((share): share is NonNullable<typeof share> => Boolean(share)),
   }));
 
   return {
@@ -49,11 +67,28 @@ export function getVoiceChannelsUpdate(room: RoomState): VoiceChannelsUpdate {
   };
 }
 
+export function removeOwnedScreenSharesFromVoiceChannel(channel: VoiceChannelState, socketId: string): boolean {
+  let changed = false;
+
+  for (const [shareId, share] of channel.activeScreenShares.entries()) {
+    if (share.ownerSessionId === socketId) {
+      channel.activeScreenShares.delete(shareId);
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
 export function removeSocketFromVoiceChannels(room: RoomState, socketId: string): boolean {
   let changed = false;
 
   for (const channel of room.voiceChannels.values()) {
     if (channel.participantSessionIds.delete(socketId)) {
+      changed = true;
+    }
+
+    if (removeOwnedScreenSharesFromVoiceChannel(channel, socketId)) {
       changed = true;
     }
   }

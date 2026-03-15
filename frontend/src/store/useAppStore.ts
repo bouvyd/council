@@ -32,6 +32,8 @@ type AppStore = {
   voiceRoomId: string | null;
   voiceChannels: VoiceChannel[];
   activeVoiceChannelId: string | null;
+  activeScreenShareId: string | null;
+  isWatchedScreenShareAudioMuted: boolean;
   messages: ChatMessage[];
   typingBySessionId: Record<string, boolean>;
   activeReplyToMessageId: string | null;
@@ -54,6 +56,8 @@ type AppStore = {
   setRouteIdentity: (name: string) => void;
   applyPresence: (payload: PresenceUpdate) => void;
   setActiveVoiceChannelId: (channelId: string | null) => void;
+  setActiveScreenShareId: (shareId: string | null) => void;
+  setIsWatchedScreenShareAudioMuted: (value: boolean) => void;
   applyVoiceChannelsUpdate: (payload: VoiceChannelsUpdate) => void;
   appendMessage: (payload: ChatMessage) => void;
   applyMessageReactionUpdated: (payload: MessageReactionUpdated) => void;
@@ -86,6 +90,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   voiceRoomId: null,
   voiceChannels: [],
   activeVoiceChannelId: null,
+  activeScreenShareId: null,
+  isWatchedScreenShareAudioMuted: false,
   messages: [],
   typingBySessionId: {},
   activeReplyToMessageId: null,
@@ -135,6 +141,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   setActiveVoiceChannelId: (channelId) => set({ activeVoiceChannelId: channelId }),
+  setActiveScreenShareId: (shareId) => set({ activeScreenShareId: shareId }),
+  setIsWatchedScreenShareAudioMuted: (value) => set({ isWatchedScreenShareAudioMuted: value }),
 
   applyVoiceChannelsUpdate: (payload) => {
     const state = get();
@@ -144,9 +152,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
       return;
     }
 
+    const nextActiveShareId = payload.channels
+      .flatMap((channel) => channel.activeScreenShares)
+      .some((share) => share.shareId === state.activeScreenShareId)
+      ? state.activeScreenShareId
+      : null;
+
     set({
       voiceRoomId: payload.roomId,
       voiceChannels: payload.channels,
+      activeScreenShareId: nextActiveShareId,
+      isWatchedScreenShareAudioMuted: nextActiveShareId ? state.isWatchedScreenShareAudioMuted : false,
     });
   },
 
@@ -227,6 +243,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       voiceRoomId: null,
       voiceChannels: [],
       activeVoiceChannelId: null,
+      activeScreenShareId: null,
+      isWatchedScreenShareAudioMuted: false,
       typingBySessionId: {},
       activeReplyToMessageId: null,
       error: null,
@@ -260,6 +278,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       voiceRoomId: null,
       voiceChannels: [],
       activeVoiceChannelId: null,
+      activeScreenShareId: null,
+      isWatchedScreenShareAudioMuted: false,
       messages: [],
       typingBySessionId: {},
       activeReplyToMessageId: null,

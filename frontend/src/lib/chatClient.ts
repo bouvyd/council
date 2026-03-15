@@ -6,6 +6,9 @@ import type {
   ReactionToggleInput,
   RoomJoined,
   RoomRef,
+  ScreenShareStartInput,
+  ScreenShareStopInput,
+  ScreenSignalRelayInput,
   SendMessageInput,
   VoiceChannelCreateInput,
   VoiceChannelJoinInput,
@@ -154,4 +157,32 @@ export function leaveVoiceChannelRequest(input: VoiceChannelLeaveInput): Promise
 
 export function emitVoiceSignal(input: VoiceSignalRelayInput) {
   socket.emit("voice:signal", input);
+}
+
+export function startScreenShareRequest(input: ScreenShareStartInput): Promise<VoiceChannelsUpdate> {
+  return new Promise((resolve, reject) => {
+    socket.emit("screen:share:start", input, (result) => {
+      try {
+        resolve(fromAck(result));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+export function stopScreenShareRequest(input: ScreenShareStopInput): Promise<VoiceChannelsUpdate> {
+  return new Promise((resolve, reject) => {
+    socket.emit("screen:share:stop", input, (result) => {
+      try {
+        resolve(fromAck(result));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+export function emitScreenSignal(input: ScreenSignalRelayInput) {
+  socket.emit("screen:signal", input);
 }

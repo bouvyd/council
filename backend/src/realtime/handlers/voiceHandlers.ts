@@ -3,6 +3,7 @@ import {
   MAX_VOICE_CHANNELS_PER_ROOM,
   MAX_VOICE_PARTICIPANTS_PER_CHANNEL,
   getVoiceChannelsUpdate,
+  removeOwnedScreenSharesFromVoiceChannel,
   removeSocketFromVoiceChannels,
 } from "../roomState";
 import type { HandlerContext } from "./context";
@@ -68,6 +69,7 @@ export function registerVoiceHandlers({ io, socket, rooms }: HandlerContext) {
       name,
       isDefault: false,
       participantSessionIds: new Set(),
+      activeScreenShares: new Map(),
     });
 
     const update = getVoiceChannelsUpdate(room);
@@ -143,6 +145,7 @@ export function registerVoiceHandlers({ io, socket, rooms }: HandlerContext) {
     }
 
     channel.participantSessionIds.delete(socket.id);
+    removeOwnedScreenSharesFromVoiceChannel(channel, socket.id);
     if (socket.data.voiceChannelId === channel.id) {
       socket.data.voiceChannelId = undefined;
     }

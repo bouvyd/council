@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage, UserIdentity, VoiceChannel } from "@council/shared";
 import { MessageComposer } from "../components/MessageComposer";
 import { MessageItem } from "../components/MessageItem";
+import { ScreenShareViewer } from "../components/ScreenShareViewer";
 
 type RoomScreenProps = {
   currentRoomId: string;
@@ -9,6 +10,9 @@ type RoomScreenProps = {
   presence: UserIdentity[];
   voiceChannels: VoiceChannel[];
   activeVoiceChannelId: string | null;
+  activeScreenShareId: string | null;
+  watchedScreenStream: MediaStream | null;
+  isWatchedScreenShareAudioMuted: boolean;
   isLocalAudioMuted: boolean;
   mutedVoiceParticipantIds: string[];
   typingBySessionId: Record<string, boolean>;
@@ -27,7 +31,12 @@ type RoomScreenProps = {
   onJoinVoiceChannel: (channelId: string) => void;
   onToggleLocalAudioMute: () => void;
   onDisconnectVoice: () => void;
+  onStartScreenShare: () => void;
+  onStopScreenShare: () => void;
   onToggleParticipantAudio: (sessionId: string) => void;
+  onSelectScreenShare: (shareId: string) => void;
+  onStopWatchingScreen: () => void;
+  onToggleWatchedScreenAudioMute: () => void;
   onSelectReply: (messageId: string) => void;
   onClearReply: () => void;
   onToggleReaction: (messageId: string, emoji: string) => void;
@@ -48,6 +57,9 @@ export function RoomScreen({
   presence,
   voiceChannels,
   activeVoiceChannelId,
+  activeScreenShareId,
+  watchedScreenStream,
+  isWatchedScreenShareAudioMuted,
   isLocalAudioMuted,
   mutedVoiceParticipantIds,
   typingBySessionId,
@@ -66,7 +78,12 @@ export function RoomScreen({
   onJoinVoiceChannel,
   onToggleLocalAudioMute,
   onDisconnectVoice,
+  onStartScreenShare,
+  onStopScreenShare,
   onToggleParticipantAudio,
+  onSelectScreenShare,
+  onStopWatchingScreen,
+  onToggleWatchedScreenAudioMute,
   onSelectReply,
   onClearReply,
   onToggleReaction,
@@ -79,10 +96,14 @@ export function RoomScreen({
 
   const highlightTimeoutRef = useRef<number | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [miniPlayerShareId, setMiniPlayerShareId] = useState<string | null>(null);
+  const miniVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const otherUsers = presence.filter((user) => user.sessionId !== currentUser?.sessionId);
   const canCreateVoiceChannel = voiceChannels.length < 3;
   const activeVoiceChannel = voiceChannels.find((channel) => channel.channelId === activeVoiceChannelId) ?? null;
+  const localScreenShare = activeVoiceChannel?.activeScreenShares.find((share) => share.sessionId === currentUser?.sessionId) ?? null;
+  const selectedScreenShare = activeVoiceChannel?.activeScreenShares.find((share) => share.shareId === activeScreenShareId) ?? null;
   const messageById = useMemo(() => {
     const map = new Map<string, ChatMessage>();
     for (const message of messages) {
@@ -94,6 +115,7 @@ export function RoomScreen({
 
   const activeReplyMessage = activeReplyToMessageId ? messageById.get(activeReplyToMessageId) ?? null : null;
   const replyPreview = activeReplyMessage ? truncate(activeReplyMessage.text, 60) : null;
+  const isMiniPlayer = miniPlayerShareId !== null && miniPlayerShareId === activeScreenShareId;
 
   useEffect(() => {
     return () => {
@@ -102,6 +124,15 @@ export function RoomScreen({
       }
     };
   }, []);
+
+    useEffect(() => {
+      if (!miniVideoRef.current) {
+        return;
+      }
+
+      miniVideoRef.current.srcObject = watchedScreenStream;
+      miniVideoRef.current.muted = isWatchedScreenShareAudioMuted;
+    }, [isMiniPlayer, watchedScreenStream, isWatchedScreenShareAudioMuted]);
 
   const jumpToMessage = (messageId: string) => {
     const target = document.getElementById(`message-${messageId}`);
@@ -219,6 +250,17 @@ export function RoomScreen({
 
                   return 0;
                 });
+                const orderedScreenShares = [...channel.activeScreenShares].sort((left, right) => {
+                  if (left.sessionId === currentUser?.sessionId) {
+                    return -1;
+                  }
+
+                  if (right.sessionId === currentUser?.sessionId) {
+                    return 1;
+                  }
+
+                  return left.displayName.localeCompare(right.displayName);
+                });
 
                 return (
                   <li
@@ -230,7 +272,6 @@ export function RoomScreen({
                         <div className="flex items-center justify-between gap-[0.45rem]">
                           <span className="text-[0.9rem] text-text">
                             {channel.name}
-                            {channel.isDefault ? <span className="ml-[0.3rem] text-text-muted">(default)</span> : null}
                           </span>
                           <span className="text-[0.8rem] text-text-muted">{channel.participants.length}/6</span>
                         </div>
@@ -279,6 +320,30 @@ export function RoomScreen({
                             );
                           })}
                         </div>
+                        {orderedScreenShares.length > 0 ? (
+                          <div className="mt-[0.5rem] grid gap-[0.28rem]">
+                            <span className="text-[0.72rem] uppercase tracking-[0.08em] text-text-muted">streams</span>
+                            <div className="flex flex-wrap items-center gap-[0.35rem]">
+                              {orderedScreenShares.map((share) => {
+                                const isSelected = share.shareId === activeScreenShareId;
+                                const label = `${share.displayName}`;
+
+                                return (
+                                  <button
+                                    key={share.shareId}
+                                    className={`cursor-pointer rounded-[var(--radius)] border px-[0.38rem] py-[0.1rem] text-[0.72rem] ${isSelected ? "border-primary-bright bg-primary-soft-10 text-primary-bright" : "border-control-border bg-surface-control text-text-muted hover:border-primary hover:text-primary-bright"}`}
+                                    type="button"
+                                    onClick={() => onSelectScreenShare(share.shareId)}
+                                    aria-pressed={isSelected}
+                                    title={`Watch ${share.displayName}`}
+                                  >
+                                    {label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : null}
                       </>
                     ) : (
                       <button
@@ -290,7 +355,6 @@ export function RoomScreen({
                         <div className="flex items-center justify-between gap-[0.45rem]">
                           <span className="text-[0.9rem] text-text">
                             {channel.name}
-                            {channel.isDefault ? <span className="ml-[0.3rem] text-text-muted">(default)</span> : null}
                           </span>
                           <span className="text-[0.8rem] text-text-muted">{channel.participants.length}/6</span>
                         </div>
@@ -330,6 +394,13 @@ export function RoomScreen({
               <button
                 className={`${actionButtonClass} w-full`}
                 type="button"
+                onClick={localScreenShare ? onStopScreenShare : onStartScreenShare}
+              >
+                {localScreenShare ? "stop sharing" : "share screen"}
+              </button>
+              <button
+                className={`${actionButtonClass} w-full`}
+                type="button"
                 onClick={onDisconnectVoice}
               >
                 disconnect
@@ -340,30 +411,102 @@ export function RoomScreen({
       </aside>
 
       <div className={`${panelClass} flex flex-col order-1 min-h-0 overflow-hidden p-[0.95rem] min-[901px]:order-2`}>
-        <div className="min-h-0 flex-1 rounded-[var(--radius)] p-[0.55rem]">
-          <div className="h-full overflow-y-auto overflow-x-hidden pr-[0.2rem]">
-            <div className="ms-0 w-full">
-              {messages.length === 0 ? (
-                <p className="m-0 text-text-muted">No messages yet.</p>
-              ) : (
-                <ul className="m-0 grid list-none gap-[0.62rem] p-0">
-                  {messages.map((message) => (
-                    <MessageItem
-                      key={message.id}
-                      message={message}
-                      isSelf={message.kind !== "system" && message.author.sessionId === currentUser?.sessionId}
-                      isHighlighted={highlightedMessageId === message.id}
-                      currentSessionId={currentUser?.sessionId ?? null}
-                      replyToMessage={message.replyToMessageId ? messageById.get(message.replyToMessageId) ?? null : null}
-                      onReply={onSelectReply}
-                      onJumpToMessage={jumpToMessage}
-                      onToggleReaction={onToggleReaction}
-                    />
-                  ))}
-                </ul>
-              )}
+        <div className="relative min-h-0 flex-1 rounded-[var(--radius)] p-[0.55rem]">
+          {selectedScreenShare && !isMiniPlayer ? (
+            watchedScreenStream ? (
+              <ScreenShareViewer
+                stream={watchedScreenStream}
+                title={`${selectedScreenShare.displayName} is sharing`}
+                hasAudio={selectedScreenShare.hasAudio}
+                isAudioMuted={isWatchedScreenShareAudioMuted}
+                onToggleAudioMute={onToggleWatchedScreenAudioMute}
+                onMiniPlayer={() => setMiniPlayerShareId(activeScreenShareId)}
+                onStopWatching={onStopWatchingScreen}
+              />
+            ) : (
+              <div className="flex h-full min-h-0 flex-col justify-center rounded-[var(--radius)] border border-panel-border bg-surface-muted p-[0.75rem] text-center">
+                <p className="m-0 text-text">Connecting to {selectedScreenShare.displayName}&apos;s stream…</p>
+                <p className="m-0 mt-[0.28rem] text-[0.82rem] text-text-muted">The message view will return when you stop watching.</p>
+                <div className="mt-[0.7rem] flex justify-center">
+                  <button
+                    className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.55rem] py-[0.28rem] text-[0.78rem] text-text-muted hover:border-primary hover:text-primary-bright"
+                    type="button"
+                    onClick={onStopWatchingScreen}
+                  >
+                    stop watching
+                  </button>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="h-full overflow-y-auto overflow-x-hidden pr-[0.2rem]">
+              <div className="ms-0 w-full">
+                {messages.length === 0 ? (
+                  <p className="m-0 text-text-muted">No messages yet.</p>
+                ) : (
+                  <ul className="m-0 grid list-none gap-[0.62rem] p-0">
+                    {messages.map((message) => (
+                      <MessageItem
+                        key={message.id}
+                        message={message}
+                        isSelf={message.kind !== "system" && message.author.sessionId === currentUser?.sessionId}
+                        isHighlighted={highlightedMessageId === message.id}
+                        currentSessionId={currentUser?.sessionId ?? null}
+                        replyToMessage={message.replyToMessageId ? messageById.get(message.replyToMessageId) ?? null : null}
+                        onReply={onSelectReply}
+                        onJumpToMessage={jumpToMessage}
+                        onToggleReaction={onToggleReaction}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+          {isMiniPlayer && selectedScreenShare ? (
+            <div className="absolute top-[0.55rem] right-[0.55rem] z-10 w-[600px] overflow-hidden rounded-[var(--radius)] border border-panel-border bg-black shadow-[0_4px_20px_rgba(0,0,0,0.55)]">
+              {watchedScreenStream ? (
+                <video
+                  ref={miniVideoRef}
+                  className="aspect-video w-full bg-black object-contain"
+                  autoPlay
+                  playsInline
+                />
+              ) : (
+                <div className="flex aspect-video items-center justify-center bg-black/60">
+                  <p className="m-0 text-[0.75rem] text-text-muted">Connecting…</p>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-[0.3rem] bg-surface-muted/90 px-[0.4rem] py-[0.28rem]">
+                <span className="truncate text-[0.7rem] text-text-muted">{selectedScreenShare.displayName}</span>
+                <div className="flex shrink-0 items-center gap-[0.25rem]">
+                  {selectedScreenShare.hasAudio ? (
+                    <button
+                      className="cursor-pointer rounded border border-control-border bg-surface-control px-[0.35rem] py-[0.15rem] text-[0.65rem] text-text-muted hover:border-primary hover:text-primary-bright"
+                      type="button"
+                      onClick={onToggleWatchedScreenAudioMute}
+                    >
+                      {isWatchedScreenShareAudioMuted ? "unmute" : "mute"}
+                    </button>
+                  ) : null}
+                  <button
+                    className="cursor-pointer rounded border border-control-border bg-surface-control px-[0.35rem] py-[0.15rem] text-[0.65rem] text-text-muted hover:border-primary hover:text-primary-bright"
+                    type="button"
+                    onClick={() => setMiniPlayerShareId(null)}
+                  >
+                    expand
+                  </button>
+                  <button
+                    className="cursor-pointer rounded border border-control-border bg-surface-control px-[0.35rem] py-[0.15rem] text-[0.65rem] text-text-muted hover:border-primary hover:text-primary-bright"
+                    type="button"
+                    onClick={onStopWatchingScreen}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <MessageComposer

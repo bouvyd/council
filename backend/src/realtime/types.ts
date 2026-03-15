@@ -12,11 +12,18 @@ export type SocketData = {
   voiceChannelId?: string;
 };
 
+export type ScreenShareState = {
+  id: string;
+  ownerSessionId: string;
+  hasAudio: boolean;
+};
+
 export type VoiceChannelState = {
   id: string;
   name: string;
   isDefault: boolean;
   participantSessionIds: Set<string>;
+  activeScreenShares: Map<string, ScreenShareState>;
 };
 
 export type RoomState = {

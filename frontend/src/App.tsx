@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { RoomJoined, VoiceChannelsUpdate, VoiceSignalRelayed } from "@council/shared";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { RoomJoined, ScreenSignalRelayed, VoiceChannelsUpdate, VoiceSignalRelayed } from "@council/shared";
 import { Navigate, Route, Routes, useMatch, useNavigate } from "react-router-dom";
 import { socket } from "./lib/socket";
 import {
   createVoiceChannelRequest,
   checkRoomRequest,
+  emitScreenSignal,
   emitVoiceSignal,
   createRoomRequest,
   emitReactionToggle,
@@ -16,10 +17,13 @@ import {
   leaveRoomRequest,
   renameDisplayNameRequest,
   sendMessageRequest,
+  startScreenShareRequest,
+  stopScreenShareRequest,
 } from "./lib/chatClient";
 import { getRoomIdentity, saveRoomIdentity } from "./lib/persistence";
 import { getNormalizedRoomId, useAppStore } from "./store/useAppStore";
 import { VoiceMeshManager } from "./lib/webrtc/voiceMesh";
+import { ScreenShareMeshManager } from "./lib/webrtc/screenShareMesh";
 import { AppHeader } from "./components/AppHeader";
 import { NameRequiredModal } from "./components/NameRequiredModal";
 import { LobbyScreen } from "./screens/LobbyScreen";
@@ -51,11 +55,13 @@ function AppShell() {
   const suppressRouteAutoJoinRef = useRef(false);
   const typingIdleTimeoutRef = useRef<number | null>(null);
   const voiceMeshRef = useRef<VoiceMeshManager | null>(null);
+  const screenShareMeshRef = useRef<ScreenShareMeshManager | null>(null);
   const [nameModalMode, setNameModalMode] = useState<"join" | "rename">("join");
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [inviteStatus, setInviteStatus] = useState<"idle" | "copied" | "error">("idle");
   const [isLocalAudioMuted, setIsLocalAudioMuted] = useState(false);
   const [mutedVoiceParticipantIds, setMutedVoiceParticipantIds] = useState<string[]>([]);
+  const [watchedScreenStream, setWatchedScreenStream] = useState<MediaStream | null>(null);
 
   const {
     displayName,
@@ -68,6 +74,8 @@ function AppShell() {
     presence,
     voiceChannels,
     activeVoiceChannelId,
+    activeScreenShareId,
+    isWatchedScreenShareAudioMuted,
     messages,
     typingBySessionId,
     activeReplyToMessageId,
@@ -90,6 +98,8 @@ function AppShell() {
     applyCurrentUserDisplayName,
     applyVoiceChannelsUpdate,
     setActiveVoiceChannelId,
+    setActiveScreenShareId,
+    setIsWatchedScreenShareAudioMuted,
     clearRoomSession,
   } = useAppStore();
 
@@ -107,6 +117,22 @@ function AppShell() {
       setActiveVoiceChannelId(joinedChannel?.channelId ?? null);
     },
     [setActiveVoiceChannelId],
+  );
+
+  const activeVoiceChannel = useMemo(
+    () => voiceChannels.find((channel) => channel.channelId === activeVoiceChannelId) ?? null,
+    [activeVoiceChannelId, voiceChannels],
+  );
+
+  const localScreenShare = useMemo(
+    () =>
+      activeVoiceChannel?.activeScreenShares.find((share) => share.sessionId === currentUser?.sessionId) ?? null,
+    [activeVoiceChannel, currentUser?.sessionId],
+  );
+
+  const selectedScreenShare = useMemo(
+    () => activeVoiceChannel?.activeScreenShares.find((share) => share.shareId === activeScreenShareId) ?? null,
+    [activeScreenShareId, activeVoiceChannel],
   );
 
   const emitTyping = (isTyping: boolean) => {
@@ -244,6 +270,40 @@ function AppShell() {
   }, [setError]);
 
   useEffect(() => {
+    if (screenShareMeshRef.current) {
+      return;
+    }
+
+    screenShareMeshRef.current = new ScreenShareMeshManager({
+      onSignal: (payload) => emitScreenSignal(payload),
+      onError: (message) => setError(message),
+      onWatchedStreamChange: (stream) => setWatchedScreenStream(stream),
+      onLocalShareEnded: (payload) => {
+        void (async () => {
+          try {
+            const update = await stopScreenShareRequest(payload);
+            useAppStore.getState().applyVoiceChannelsUpdate(update);
+            if (useAppStore.getState().activeScreenShareId === payload.shareId) {
+              useAppStore.getState().setActiveScreenShareId(null);
+              useAppStore.getState().setIsWatchedScreenShareAudioMuted(false);
+            }
+            setWatchedScreenStream(null);
+            syncActiveVoiceChannel(update.channels);
+          } catch (error) {
+            setError(error instanceof Error ? error.message : "Screen share stop failed.");
+          }
+        })();
+      },
+    });
+
+    return () => {
+      screenShareMeshRef.current?.stopWatching();
+      screenShareMeshRef.current?.stopSharing();
+      screenShareMeshRef.current = null;
+    };
+  }, [setError, syncActiveVoiceChannel]);
+
+  useEffect(() => {
     const onPresence = useAppStore.getState().applyPresence;
     const onVoiceChannelsUpdated = (payload: VoiceChannelsUpdate) => {
       useAppStore.getState().applyVoiceChannelsUpdate(payload);
@@ -256,6 +316,9 @@ function AppShell() {
     const onVoiceSignal = (payload: VoiceSignalRelayed) => {
       void voiceMeshRef.current?.handleSignal(payload);
     };
+    const onScreenSignal = (payload: ScreenSignalRelayed) => {
+      void screenShareMeshRef.current?.handleSignal(payload);
+    };
 
     socket.on("room:presence", onPresence);
     socket.on("voice:channels:updated", onVoiceChannelsUpdated);
@@ -264,6 +327,7 @@ function AppShell() {
     socket.on("typing:update", onTypingUpdate);
     socket.on("system:error", onSystemError);
     socket.on("voice:signal", onVoiceSignal);
+    socket.on("screen:signal", onScreenSignal);
 
     return () => {
       socket.off("room:presence", onPresence);
@@ -273,6 +337,7 @@ function AppShell() {
       socket.off("typing:update", onTypingUpdate);
       socket.off("system:error", onSystemError);
       socket.off("voice:signal", onVoiceSignal);
+      socket.off("screen:signal", onScreenSignal);
     };
   }, [applyVoiceChannelsUpdate, syncActiveVoiceChannel]);
 
@@ -326,13 +391,70 @@ function AppShell() {
   }, []);
 
   useEffect(() => {
-    const activeChannel = voiceChannels.find((channel) => channel.channelId === activeVoiceChannelId);
-    const activeParticipantIds = new Set(activeChannel?.participants.map((participant) => participant.sessionId) ?? []);
+    const activeParticipantIds = new Set(activeVoiceChannel?.participants.map((participant) => participant.sessionId) ?? []);
 
     setMutedVoiceParticipantIds((current) =>
       current.filter((sessionId) => activeParticipantIds.has(sessionId)),
     );
-  }, [activeVoiceChannelId, voiceChannels]);
+  }, [activeVoiceChannel]);
+
+  useEffect(() => {
+    const manager = screenShareMeshRef.current;
+    if (!manager) {
+      return;
+    }
+
+    if (!activeVoiceChannel || !currentRoomId || !currentUser) {
+      manager.stopWatching();
+      manager.stopSharing();
+      setWatchedScreenStream(null);
+      setActiveScreenShareId(null);
+      setIsWatchedScreenShareAudioMuted(false);
+      return;
+    }
+
+    const activeShareIds = new Set(activeVoiceChannel.activeScreenShares.map((share) => share.shareId));
+    if (activeScreenShareId && !activeShareIds.has(activeScreenShareId)) {
+      manager.stopWatching();
+      setWatchedScreenStream(null);
+      setActiveScreenShareId(null);
+      setIsWatchedScreenShareAudioMuted(false);
+    }
+
+    if (!localScreenShare) {
+      manager.stopSharing();
+    }
+
+    if (!selectedScreenShare) {
+      manager.stopWatching();
+      setWatchedScreenStream(null);
+      return;
+    }
+
+    if (selectedScreenShare.sessionId === currentUser.sessionId) {
+      manager.stopWatching();
+      setWatchedScreenStream(manager.getLocalPreviewStream());
+      return;
+    }
+
+    setWatchedScreenStream(null);
+    void manager.watchShare({
+      roomId: currentRoomId,
+      channelId: activeVoiceChannel.channelId,
+      selfSessionId: currentUser.sessionId,
+      shareId: selectedScreenShare.shareId,
+      ownerSessionId: selectedScreenShare.sessionId,
+    });
+  }, [
+    activeScreenShareId,
+    activeVoiceChannel,
+    currentRoomId,
+    currentUser,
+    localScreenShare,
+    selectedScreenShare,
+    setActiveScreenShareId,
+    setIsWatchedScreenShareAudioMuted,
+  ]);
 
   useEffect(() => {
     setIsInfoPanelOpen(false);
@@ -567,6 +689,15 @@ function AppShell() {
       return;
     }
 
+    if (localScreenShare?.channelId === channelId) {
+      screenShareMeshRef.current?.stopSharing();
+    }
+
+    screenShareMeshRef.current?.stopWatching();
+    setWatchedScreenStream(null);
+    setActiveScreenShareId(null);
+    setIsWatchedScreenShareAudioMuted(false);
+
     void (async () => {
       try {
         const update = await leaveVoiceChannelRequest({ roomId: currentRoomId, channelId });
@@ -598,6 +729,82 @@ function AppShell() {
     setMutedVoiceParticipantIds((current) =>
       nextMuted ? [...current, sessionId] : current.filter((id) => id !== sessionId),
     );
+  };
+
+  const handleStartScreenShare = () => {
+    if (!currentRoomId || !currentUser || !activeVoiceChannelId) {
+      return;
+    }
+
+    const shareId = globalThis.crypto?.randomUUID?.() ?? generateClientMessageId();
+
+    void (async () => {
+      try {
+        const started = await screenShareMeshRef.current?.startSharing({
+          roomId: currentRoomId,
+          channelId: activeVoiceChannelId,
+          selfSessionId: currentUser.sessionId,
+          shareId,
+        });
+
+        if (!started) {
+          return;
+        }
+
+        const update = await startScreenShareRequest({
+          roomId: currentRoomId,
+          channelId: activeVoiceChannelId,
+          shareId: started.shareId,
+          hasAudio: started.hasAudio,
+        });
+        applyVoiceChannelsUpdate(update);
+      } catch (screenError) {
+        screenShareMeshRef.current?.stopSharing();
+        setError(screenError instanceof Error ? screenError.message : "Screen share start failed.");
+      }
+    })();
+  };
+
+  const handleStopScreenShare = () => {
+    if (!currentRoomId || !activeVoiceChannelId || !localScreenShare) {
+      return;
+    }
+
+    screenShareMeshRef.current?.stopSharing();
+    if (activeScreenShareId === localScreenShare.shareId) {
+      setActiveScreenShareId(null);
+      setIsWatchedScreenShareAudioMuted(false);
+      setWatchedScreenStream(null);
+    }
+
+    void (async () => {
+      try {
+        const update = await stopScreenShareRequest({
+          roomId: currentRoomId,
+          channelId: activeVoiceChannelId,
+          shareId: localScreenShare.shareId,
+        });
+        applyVoiceChannelsUpdate(update);
+      } catch (screenError) {
+        setError(screenError instanceof Error ? screenError.message : "Screen share stop failed.");
+      }
+    })();
+  };
+
+  const handleSelectScreenShare = (shareId: string) => {
+    setActiveScreenShareId(shareId);
+    setIsWatchedScreenShareAudioMuted(false);
+  };
+
+  const handleStopWatchingScreen = () => {
+    screenShareMeshRef.current?.stopWatching();
+    setWatchedScreenStream(null);
+    setActiveScreenShareId(null);
+    setIsWatchedScreenShareAudioMuted(false);
+  };
+
+  const handleToggleWatchedScreenAudioMute = () => {
+    setIsWatchedScreenShareAudioMuted(!isWatchedScreenShareAudioMuted);
   };
 
   return (
@@ -640,6 +847,9 @@ function AppShell() {
             presence={presence}
             voiceChannels={voiceChannels}
             activeVoiceChannelId={activeVoiceChannelId}
+            activeScreenShareId={activeScreenShareId}
+            watchedScreenStream={watchedScreenStream}
+            isWatchedScreenShareAudioMuted={isWatchedScreenShareAudioMuted}
             isLocalAudioMuted={isLocalAudioMuted}
             mutedVoiceParticipantIds={mutedVoiceParticipantIds}
             typingBySessionId={typingBySessionId}
@@ -658,7 +868,12 @@ function AppShell() {
             onJoinVoiceChannel={handleJoinVoiceChannel}
             onToggleLocalAudioMute={handleToggleLocalAudioMute}
             onDisconnectVoice={handleDisconnectVoice}
+            onStartScreenShare={handleStartScreenShare}
+            onStopScreenShare={handleStopScreenShare}
             onToggleParticipantAudio={handleToggleParticipantAudio}
+            onSelectScreenShare={handleSelectScreenShare}
+            onStopWatchingScreen={handleStopWatchingScreen}
+            onToggleWatchedScreenAudioMute={handleToggleWatchedScreenAudioMute}
             onSelectReply={setActiveReplyToMessageId}
             onClearReply={clearActiveReplyToMessageId}
             onToggleReaction={handleToggleReaction}
