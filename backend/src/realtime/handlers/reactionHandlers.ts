@@ -36,6 +36,10 @@ export function registerReactionHandlers({ io, socket, rooms }: HandlerContext) 
       return;
     }
 
+    if (message.kind === "system") {
+      return;
+    }
+
     const reactions = { ...(message.reactions ?? {}) };
     const currentSessionIds = new Set(reactions[emoji] ?? []);
 

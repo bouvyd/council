@@ -2,6 +2,9 @@ type NameRequiredModalProps = {
   roomId: string;
   routeName: string;
   submitting: boolean;
+  title?: string;
+  description?: string;
+  submitLabel?: string;
   onRouteNameChange: (value: string) => void;
   onSubmit: () => void;
 };
@@ -10,6 +13,9 @@ export function NameRequiredModal({
   roomId,
   routeName,
   submitting,
+  title,
+  description,
+  submitLabel,
   onRouteNameChange,
   onSubmit,
 }: NameRequiredModalProps) {
@@ -29,10 +35,14 @@ export function NameRequiredModal({
         role="dialog"
       >
         <h2 className="m-0 font-semibold tracking-[0.08em] text-text-muted" id="name-modal-title">
-          and who might you be?
+          {title ?? "and who might you be?"}
         </h2>
         <p className="mt-[0.7rem] text-text-muted" id="name-modal-description">
-          Join room <strong>#{roomId}</strong>.
+          {description ?? (
+            <>
+              Join room <strong>#{roomId}</strong>.
+            </>
+          )}
         </p>
         <form
           className="mt-[0.85rem] grid gap-[0.65rem]"
@@ -57,7 +67,7 @@ export function NameRequiredModal({
             type="submit"
             disabled={submitting || !routeName.trim()}
           >
-            Enter room
+            {submitLabel ?? "Enter room"}
           </button>
         </form>
       </div>

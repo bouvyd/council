@@ -40,6 +40,7 @@ export function MessageItem({
   onJumpToMessage,
   onToggleReaction,
 }: MessageItemProps) {
+  const isSystemMessage = message.kind === "system";
   const reactButtonRef = useRef<HTMLButtonElement | null>(null);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
@@ -77,32 +78,34 @@ export function MessageItem({
   return (
     <li
       id={`message-${message.id}`}
-      className={`group border-l bg-surface px-[0.62rem] py-[0.55rem] transition-[border-color,box-shadow,background-color] duration-150 ease-in-out ${isSelf ? "ml-[0.5rem] border-l-[3px] border-message-line" : "border-l border-message-line"} ${isHighlighted ? " border-primary-bright bg-primary-soft-10" : ""}`.trim()}
+      className={`group border-l bg-surface px-[0.62rem] py-[0.55rem] transition-[border-color,box-shadow,background-color] duration-150 ease-in-out ${isSelf ? "ml-[0.5rem] border-l-[3px] border-message-line" : "border-l border-message-line"} ${isHighlighted ? " border-primary-bright bg-primary-soft-10" : ""} ${isSystemMessage ? "border-primary-bright bg-primary-soft-10" : ""}`.trim()}
       key={message.id}
     >
-      <div className="mb-[0.42rem] flex items-center justify-between gap-[0.45rem] text-text-muted">
-        <span>{message.author.displayName}</span>
-        <div className="inline-flex items-center gap-[0.34rem]">
-          <button
-            ref={reactButtonRef}
-            className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.42rem] py-[0.16rem] text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none opacity-0 group-hover:opacity-100 max-[900px]:opacity-100`}
-            onClick={() => setIsPickerOpen((current) => !current)}
-            type="button"
-          >
-            react
-          </button>
-          <button
-            className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.42rem] py-[0.16rem] text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none opacity-0 group-hover:opacity-100 max-[900px]:opacity-100`}
-            type="button"
-            onClick={() => onReply(message.id)}
-          >
-            reply
-          </button>
-          <span className="whitespace-nowrap">{formatTime(message.createdAt)}</span>
+      {!isSystemMessage ? (
+        <div className="mb-[0.42rem] flex items-center justify-between gap-[0.45rem] text-text-muted">
+          <span>{message.author.displayName}</span>
+          <div className="inline-flex items-center gap-[0.34rem]">
+            <button
+              ref={reactButtonRef}
+              className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.42rem] py-[0.16rem] text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none opacity-0 group-hover:opacity-100 max-[900px]:opacity-100`}
+              onClick={() => setIsPickerOpen((current) => !current)}
+              type="button"
+            >
+              react
+            </button>
+            <button
+              className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.42rem] py-[0.16rem] text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none opacity-0 group-hover:opacity-100 max-[900px]:opacity-100`}
+              type="button"
+              onClick={() => onReply(message.id)}
+            >
+              reply
+            </button>
+            <span className="whitespace-nowrap">{formatTime(message.createdAt)}</span>
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      {message.replyToMessageId ? (
+      {!isSystemMessage && message.replyToMessageId ? (
         <div className="mb-[0.45rem] border-l-2 border-reply-border bg-reply-bg px-[0.45rem] py-[0.25rem]">
           {replyToMessage ? (
             <button
@@ -118,18 +121,27 @@ export function MessageItem({
         </div>
       ) : null}
 
-      <div className="markdown-content m-0 leading-[1.45] text-text max-w-[1100px]">
-        <ReactMarkdown skipHtml>{message.text}</ReactMarkdown>
-      </div>
+      {isSystemMessage ? (
+        <p className="m-0 text-[0.82rem] italic">
+          <span className="whitespace-nowrap text-text-muted">{formatTime(message.createdAt)} - </span>
+          <span>{message.text}</span>
+        </p>
+      ) : (
+        <div className="markdown-content m-0 leading-[1.45] text-text max-w-[1100px]">
+          <ReactMarkdown skipHtml>{message.text}</ReactMarkdown>
+        </div>
+      )}
 
-      <ReactionBar
-        messageId={message.id}
-        reactions={message.reactions}
-        currentSessionId={currentSessionId}
-        onToggleReaction={onToggleReaction}
-      />
+      {!isSystemMessage ? (
+        <ReactionBar
+          messageId={message.id}
+          reactions={message.reactions}
+          currentSessionId={currentSessionId}
+          onToggleReaction={onToggleReaction}
+        />
+      ) : null}
 
-      {isPickerOpen ? (
+      {!isSystemMessage && isPickerOpen ? (
         <EmojiPickerPopover
           top={pickerPosition.top}
           left={pickerPosition.left}

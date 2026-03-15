@@ -18,6 +18,7 @@ type RoomScreenProps = {
   onInvite: () => void;
   onLeaveRoom: () => void;
   onCloseInfoPanel: () => void;
+  onRenameDisplayName: () => void;
   onSelectReply: (messageId: string) => void;
   onClearReply: () => void;
   onToggleReaction: (messageId: string, emoji: string) => void;
@@ -47,6 +48,7 @@ export function RoomScreen({
   onInvite,
   onLeaveRoom,
   onCloseInfoPanel,
+  onRenameDisplayName,
   onSelectReply,
   onClearReply,
   onToggleReaction,
@@ -128,7 +130,10 @@ export function RoomScreen({
 
         <p>
           take a seat, {" "}
-          <span className="mt-[0.8rem] text-primary [text-shadow:0_0_8px_var(--primary-soft)]">
+          <span
+            className="mt-[0.8rem] cursor-pointer text-primary [text-shadow:0_0_8px_var(--primary-soft)] hover:underline hover:decoration-primary-bright"
+            onClick={onRenameDisplayName}
+          >
             {currentUser?.displayName}
           </span>
         </p>
@@ -179,7 +184,7 @@ export function RoomScreen({
                     <MessageItem
                       key={message.id}
                       message={message}
-                      isSelf={message.author.sessionId === currentUser?.sessionId}
+                      isSelf={message.kind !== "system" && message.author.sessionId === currentUser?.sessionId}
                       isHighlighted={highlightedMessageId === message.id}
                       currentSessionId={currentUser?.sessionId ?? null}
                       replyToMessage={message.replyToMessageId ? messageById.get(message.replyToMessageId) ?? null : null}

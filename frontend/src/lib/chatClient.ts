@@ -2,6 +2,7 @@ import type {
   AckResult,
   CheckRoomInput,
   CreateRoomInput,
+  RenameDisplayNameInput,
   ReactionToggleInput,
   RoomJoined,
   RoomRef,
@@ -56,6 +57,18 @@ export function checkRoomRequest(input: CheckRoomInput): Promise<{ exists: boole
 export function leaveRoomRequest(): Promise<RoomRef> {
   return new Promise((resolve, reject) => {
     socket.emit("room:leave", (result) => {
+      try {
+        resolve(fromAck(result));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+export function renameDisplayNameRequest(input: RenameDisplayNameInput): Promise<RoomJoined> {
+  return new Promise((resolve, reject) => {
+    socket.emit("room:rename", input, (result) => {
       try {
         resolve(fromAck(result));
       } catch (error) {

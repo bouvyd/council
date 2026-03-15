@@ -32,6 +32,10 @@ export type JoinRoomInput = {
   displayName: string;
 };
 
+export type RenameDisplayNameInput = {
+  displayName: string;
+};
+
 export type SendMessageInput = {
   roomId: string;
   text: string;
@@ -54,16 +58,31 @@ export type CheckRoomInput = {
   roomId: string;
 };
 
-export type ChatMessage = {
+export type UserChatMessage = {
   id: string;
   roomId: string;
   text: string;
   createdAt: string;
+  kind?: "user";
   clientMessageId?: string;
   replyToMessageId?: string;
   reactions?: Record<string, string[]>;
   author: UserIdentity;
 };
+
+export type SystemChatMessage = {
+  id: string;
+  roomId: string;
+  text: string;
+  createdAt: string;
+  kind: "system";
+  author?: never;
+  clientMessageId?: never;
+  replyToMessageId?: never;
+  reactions?: never;
+};
+
+export type ChatMessage = UserChatMessage | SystemChatMessage;
 
 export type PresenceUpdate = {
   roomId: string;
@@ -94,6 +113,10 @@ export interface ClientToServerEvents {
   "room:check": (
     payload: CheckRoomInput,
     callback: (result: AckResult<{ exists: boolean }>) => void,
+  ) => void;
+  "room:rename": (
+    payload: RenameDisplayNameInput,
+    callback: (result: AckResult<RoomJoined>) => void,
   ) => void;
   "room:leave": (callback: (result: AckResult<RoomRef>) => void) => void;
   "message:send": (

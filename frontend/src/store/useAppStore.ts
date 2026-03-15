@@ -53,6 +53,7 @@ type AppStore = {
   applyTypingUpdate: (payload: TypingUpdate) => void;
   applySystemError: (message: string) => void;
   applyRoomSuccess: (joined: RoomJoined) => void;
+  applyCurrentUserDisplayName: (displayName: string) => void;
   clearRoomSession: () => void;
 };
 
@@ -130,7 +131,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
       return;
     }
 
-    set({ messages: [...state.messages, { ...payload, reactions: payload.reactions ?? {} }] });
+    const nextMessage =
+      payload.kind === "system"
+        ? payload
+        : {
+            ...payload,
+            reactions: payload.reactions ?? {},
+          };
+
+    set({ messages: [...state.messages, nextMessage] });
   },
 
   applyMessageReactionUpdated: (payload) => {
@@ -142,7 +151,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     set({
       messages: state.messages.map((message) =>
-        message.id === payload.messageId
+        message.id === payload.messageId && message.kind !== "system"
           ? {
               ...message,
               reactions: payload.reactions,
@@ -195,6 +204,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
       submitting: false,
     });
   },
+
+  applyCurrentUserDisplayName: (displayName) =>
+    set((state) => {
+      if (!state.currentUser) {
+        return { displayName };
+      }
+
+      return {
+        displayName,
+        routeName: displayName,
+        currentUser: {
+          ...state.currentUser,
+          displayName,
+        },
+      };
+    }),
 
   clearRoomSession: () =>
     set({

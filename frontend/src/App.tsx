@@ -9,6 +9,7 @@ import {
   emitTypingUpdate,
   joinRoomRequest,
   leaveRoomRequest,
+  renameDisplayNameRequest,
   sendMessageRequest,
 } from "./lib/chatClient";
 import { getRoomIdentity, saveRoomIdentity } from "./lib/persistence";
@@ -43,6 +44,7 @@ function AppShell() {
   const routeRoomId = routeMatch?.params.roomId ?? null;
   const suppressRouteAutoJoinRef = useRef(false);
   const typingIdleTimeoutRef = useRef<number | null>(null);
+  const [nameModalMode, setNameModalMode] = useState<"join" | "rename">("join");
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [inviteStatus, setInviteStatus] = useState<"idle" | "copied" | "error">("idle");
 
@@ -75,6 +77,7 @@ function AppShell() {
     clearRouteTarget,
     setRouteIdentity,
     applyRoomSuccess,
+    applyCurrentUserDisplayName,
     clearRoomSession,
   } = useAppStore();
 
@@ -175,6 +178,7 @@ function AppShell() {
           return;
         }
 
+        setNameModalMode("join");
         setIsNameModalOpen(true);
       } catch (checkError) {
         const message = checkError instanceof Error ? checkError.message : "Room check failed.";
@@ -264,6 +268,40 @@ function AppShell() {
 
     setDisplayName(routeName.trim());
     joinRoomById(routeName.trim(), targetRouteRoomId, "replace");
+  };
+
+  const renameDisplayName = () => {
+    if (!currentRoomId || !routeName.trim()) {
+      setError("Display name is required.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    void (async () => {
+      try {
+        const renamed = await renameDisplayNameRequest({ displayName: routeName.trim() });
+        saveRoomIdentity(renamed.roomId, renamed.user.displayName);
+        applyCurrentUserDisplayName(renamed.user.displayName);
+        setIsNameModalOpen(false);
+      } catch (renameError) {
+        setError(renameError instanceof Error ? renameError.message : "Rename failed.");
+      } finally {
+        setSubmitting(false);
+      }
+    })();
+  };
+
+  const openRenameModal = () => {
+    if (!currentRoomId) {
+      return;
+    }
+
+    setNameModalMode("rename");
+    setRouteName(currentUser?.displayName ?? displayName);
+    setError(null);
+    setIsNameModalOpen(true);
   };
 
   const leaveRoom = () => {
@@ -425,6 +463,7 @@ function AppShell() {
             onInvite={copyInviteLink}
             onLeaveRoom={leaveRoom}
             onCloseInfoPanel={() => setIsInfoPanelOpen(false)}
+            onRenameDisplayName={openRenameModal}
             onSelectReply={setActiveReplyToMessageId}
             onClearReply={clearActiveReplyToMessageId}
             onToggleReaction={handleToggleReaction}
@@ -434,11 +473,18 @@ function AppShell() {
 
         {isNameModalOpen ? (
           <NameRequiredModal
-            roomId={targetRouteRoomId ?? ""}
+            roomId={targetRouteRoomId ?? currentRoomId ?? ""}
             routeName={routeName}
             submitting={submitting}
+            title={nameModalMode === "rename" ? "call sign update" : undefined}
+            description={
+              nameModalMode === "rename"
+                ? "Choose a new display name for this room."
+                : undefined
+            }
+            submitLabel={nameModalMode === "rename" ? "Update call sign" : undefined}
             onRouteNameChange={setRouteName}
-            onSubmit={joinRoutedRoom}
+            onSubmit={nameModalMode === "rename" ? renameDisplayName : joinRoutedRoom}
           />
         ) : null}
       </div>

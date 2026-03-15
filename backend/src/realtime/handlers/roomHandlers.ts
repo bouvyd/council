@@ -1,4 +1,5 @@
-import type { UserIdentity } from "@council/shared";
+import { randomUUID } from "node:crypto";
+import type { ChatMessage, UserIdentity } from "@council/shared";
 import { createRoomId, getPresenceUpdate, removeSocketFromRoom } from "../roomState";
 import type { HandlerContext } from "./context";
 
@@ -112,5 +113,65 @@ export function registerRoomHandlers({ io, socket, rooms, emitTypingUpdate }: Ha
     socket.data.user = undefined;
 
     callback({ ok: true, data: { roomId } });
+  });
+
+  socket.on("room:rename", (payload, callback) => {
+    const roomId = socket.data.roomId;
+    const previousName = socket.data.user?.displayName;
+    const displayName = payload.displayName.trim();
+
+    if (!roomId) {
+      callback({ ok: false, error: "You are not in a room." });
+      return;
+    }
+
+    if (!displayName) {
+      callback({ ok: false, error: "Display name is required." });
+      return;
+    }
+
+    if (previousName && previousName === displayName) {
+      callback({
+        ok: true,
+        data: {
+          roomId,
+          user: {
+            sessionId: socket.id,
+            displayName,
+          },
+        },
+      });
+      return;
+    }
+
+    const room = rooms.get(roomId);
+    if (!room) {
+      callback({ ok: false, error: "Room not found." });
+      return;
+    }
+
+    const user: UserIdentity = {
+      sessionId: socket.id,
+      displayName,
+    };
+
+    room.users.set(socket.id, user);
+    socket.data.user = user;
+
+    if (previousName) {
+      const renameMessage: ChatMessage = {
+        id: randomUUID(),
+        roomId: room.id,
+        text: `${previousName} shall henceforth be known as ${displayName}`,
+        createdAt: new Date().toISOString(),
+        kind: "system",
+      };
+
+      room.messages.set(renameMessage.id, renameMessage);
+      io.to(room.id).emit("message:created", renameMessage);
+    }
+
+    io.to(room.id).emit("room:presence", getPresenceUpdate(room));
+    callback({ ok: true, data: { roomId: room.id, user } });
   });
 }
