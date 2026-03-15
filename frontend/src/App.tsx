@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RoomJoined } from "@council/shared";
 import { Navigate, Route, Routes, useMatch, useNavigate } from "react-router-dom";
 import { socket } from "./lib/socket";
@@ -18,12 +18,33 @@ import { NameRequiredModal } from "./components/NameRequiredModal";
 import { LobbyScreen } from "./screens/LobbyScreen";
 import { RoomScreen } from "./screens/RoomScreen";
 
+function generateClientMessageId(): string {
+  const webCrypto = globalThis.crypto;
+
+  if (webCrypto?.randomUUID) {
+    return webCrypto.randomUUID();
+  }
+
+  if (webCrypto?.getRandomValues) {
+    const bytes = webCrypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0"));
+
+    return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
+  }
+
+  return `msg-${Date.now()}-${Math.random().toString(16).slice(2, 10)}-${Math.random().toString(16).slice(2, 10)}`;
+}
+
 function AppShell() {
   const navigate = useNavigate();
   const routeMatch = useMatch("/council/:roomId");
   const routeRoomId = routeMatch?.params.roomId ?? null;
   const suppressRouteAutoJoinRef = useRef(false);
   const typingIdleTimeoutRef = useRef<number | null>(null);
+  const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
+  const [inviteStatus, setInviteStatus] = useState<"idle" | "copied" | "error">("idle");
 
   const {
     displayName,
@@ -192,6 +213,19 @@ function AppShell() {
     };
   }, []);
 
+  useEffect(() => {
+    setIsInfoPanelOpen(false);
+  }, [currentRoomId]);
+
+  useEffect(() => {
+    if (inviteStatus !== "copied") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setInviteStatus("idle"), 1800);
+    return () => window.clearTimeout(timeoutId);
+  }, [inviteStatus]);
+
   const createRoom = () => {
     if (!displayName.trim()) {
       setError("Display name is required.");
@@ -237,6 +271,7 @@ function AppShell() {
     clearTypingIdleTimer();
     emitTyping(false);
     setPendingJoinRoomId(null);
+    setIsInfoPanelOpen(false);
     setSubmitting(true);
 
     void (async () => {
@@ -253,13 +288,41 @@ function AppShell() {
     })();
   };
 
+  const copyInviteLink = async () => {
+    if (!currentRoomId) {
+      return;
+    }
+
+    const inviteUrl = new URL(`/council/${currentRoomId}`, window.location.origin).toString();
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(inviteUrl);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = inviteUrl;
+        textarea.setAttribute("readonly", "true");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      setInviteStatus("copied");
+    } catch {
+      setInviteStatus("error");
+    }
+  };
+
   const sendMessage = () => {
     if (!currentRoomId || !draft.trim()) {
       return;
     }
 
     const text = draft.trim();
-    const clientMessageId = crypto.randomUUID();
+    const clientMessageId = generateClientMessageId();
 
     setSubmitting(true);
     setError(null);
@@ -314,13 +377,21 @@ function AppShell() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden">
+    <main className="relative min-h-screen min-h-[100dvh] overflow-hidden">
       <div
         className="scanlines-bg pointer-events-none absolute inset-0 opacity-[0.18]"
         aria-hidden="true"
       />
-      <div className="relative z-[1] m-0 flex min-h-screen w-full max-w-none flex-col px-[1.1rem] pb-[2.8rem] pt-[2.2rem]">
-        <AppHeader currentRoomId={currentRoomId} submitting={submitting} onLeaveRoom={leaveRoom} />
+      <div className="relative z-[1] m-0 flex min-h-screen min-h-[100dvh] w-full max-w-none flex-col px-[1.1rem] pb-[2.8rem] pt-[2.2rem]">
+        <AppHeader
+          currentRoomId={currentRoomId}
+          submitting={submitting}
+          inviteStatus={inviteStatus}
+          isInfoPanelOpen={isInfoPanelOpen}
+          onInvite={copyInviteLink}
+          onLeaveRoom={leaveRoom}
+          onToggleInfoPanel={() => setIsInfoPanelOpen((current) => !current)}
+        />
 
         {error ? (
           <div className="mb-[0.8rem] rounded-[var(--radius)] border border-danger-border bg-danger-bg px-[0.74rem] py-[0.58rem] text-danger-text">
@@ -340,6 +411,7 @@ function AppShell() {
           />
         ) : (
           <RoomScreen
+            currentRoomId={currentRoomId}
             currentUser={currentUser}
             presence={presence}
             typingBySessionId={typingBySessionId}
@@ -347,7 +419,12 @@ function AppShell() {
             activeReplyToMessageId={activeReplyToMessageId}
             draft={draft}
             submitting={submitting}
+            inviteStatus={inviteStatus}
+            isInfoPanelOpen={isInfoPanelOpen}
             onDraftChange={handleDraftChange}
+            onInvite={copyInviteLink}
+            onLeaveRoom={leaveRoom}
+            onCloseInfoPanel={() => setIsInfoPanelOpen(false)}
             onSelectReply={setActiveReplyToMessageId}
             onClearReply={clearActiveReplyToMessageId}
             onToggleReaction={handleToggleReaction}

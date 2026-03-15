@@ -77,7 +77,7 @@ export function MessageItem({
   return (
     <li
       id={`message-${message.id}`}
-      className={`group border-l bg-surface px-[0.62rem] py-[0.55rem] transition-[border-color,box-shadow,background-color] duration-150 ease-in-out ${isSelf ? "ml-[0.5rem] border-l-[3px] border-message-line" : "border-l border-message-line"} ${isHighlighted ? "border-primary-bright bg-primary-soft-10" : ""}`.trim()}
+      className={`group border-l bg-surface px-[0.62rem] py-[0.55rem] transition-[border-color,box-shadow,background-color] duration-150 ease-in-out ${isSelf ? "ml-[0.5rem] border-l-[3px] border-message-line" : "border-l border-message-line"} ${isHighlighted ? " border-primary-bright bg-primary-soft-10" : ""}`.trim()}
       key={message.id}
     >
       <div className="mb-[0.42rem] flex items-center justify-between gap-[0.45rem] text-text-muted">
@@ -85,14 +85,14 @@ export function MessageItem({
         <div className="inline-flex items-center gap-[0.34rem]">
           <button
             ref={reactButtonRef}
-            className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.42rem] py-[0.16rem] text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none ${isSelf ? "opacity-100" : "opacity-0 group-hover:opacity-100 max-[900px]:opacity-100"}`}
+            className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.42rem] py-[0.16rem] text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none opacity-0 group-hover:opacity-100 max-[900px]:opacity-100`}
             onClick={() => setIsPickerOpen((current) => !current)}
             type="button"
           >
             react
           </button>
           <button
-            className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.42rem] py-[0.16rem] text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none ${isSelf ? "opacity-100" : "opacity-0 group-hover:opacity-100 max-[900px]:opacity-100"}`}
+            className={`cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.42rem] py-[0.16rem] text-text-muted transition-[opacity,color,border-color] duration-150 hover:border-primary hover:text-primary-bright focus-visible:border-primary focus-visible:text-primary-bright focus-visible:outline-none opacity-0 group-hover:opacity-100 max-[900px]:opacity-100`}
             type="button"
             onClick={() => onReply(message.id)}
           >
