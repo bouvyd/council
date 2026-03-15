@@ -99,7 +99,7 @@ These files are expected to be added to the repository:
 - `docker-compose.yml`
 - `docker/backend.Dockerfile`
 - `deploy/nginx.council.conf`
-- optional deploy scripts for frontend build and sync
+- `deploy/update.sh`
 
 Status:
 
@@ -280,6 +280,43 @@ ports:
 Recommended environment file path:
 
 - `/opt/council/env/backend.env`
+
+## VPS Deploy Script
+
+The repository includes a VPS-side deploy helper:
+
+- `deploy/update.sh`
+
+Run it as the `council` user from the app checkout:
+
+```bash
+cd /opt/council/app
+bash deploy/update.sh
+```
+
+What it does:
+
+1. `git pull --ff-only`
+2. `npm ci`
+3. load frontend build variables from `/opt/council/env/frontend.env`
+4. rebuild the frontend
+5. publish the frontend to `/opt/council/www`
+6. rebuild the backend image
+7. restart the backend container
+8. wait for backend health on `http://127.0.0.1:3009/health`
+
+Supported overrides:
+
+- `COUNCIL_WWW_DIR`
+- `COUNCIL_FRONTEND_ENV_FILE`
+- `COUNCIL_BACKEND_ENV_FILE`
+- `COUNCIL_BACKEND_HEALTH_URL`
+
+Example:
+
+```bash
+COUNCIL_BACKEND_HEALTH_URL=http://127.0.0.1:3009/health bash deploy/update.sh
+```
 
 ## Host Nginx Responsibilities
 

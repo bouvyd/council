@@ -13,8 +13,6 @@ RUN npm ci
 COPY backend backend
 COPY shared shared
 
-RUN npm run build --workspace @council/backend
-
 EXPOSE 3001
 
-CMD ["node", "backend/dist/index.js"]
+CMD ["npx", "tsx", "backend/src/index.ts"]
