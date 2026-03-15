@@ -116,7 +116,7 @@ export function RoomScreen({
         className={`${panelClass} fixed inset-y-0 left-0 z-30 w-[min(88vw,320px)] overflow-y-auto p-[0.95rem] transition-transform duration-200 ease-out min-[901px]:static min-[901px]:order-1 min-[901px]:z-auto min-[901px]:w-auto min-[901px]:translate-x-0 min-[901px]:overflow-visible min-[901px]:transition-none ${isInfoPanelOpen ? "translate-x-0" : "-translate-x-full min-[901px]:translate-x-0"}`}
       >
         <div className="mb-[0.75rem] flex items-center justify-between min-[901px]:hidden">
-          <h3 className="m-0 font-semibold uppercase tracking-[0.08em] text-text-muted">room info</h3>
+          <h3 className="m-0 font-bold tracking-[0.08em] text-text-muted">room info</h3>
           <button
             className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.5rem] py-[0.2rem] text-text-muted hover:border-primary hover:text-primary-bright"
             type="button"
@@ -134,7 +134,7 @@ export function RoomScreen({
         </p>
 
         <div className="mt-[1rem] grid gap-[0.45rem] min-[901px]:hidden">
-          <h3 className="m-0 font-semibold uppercase tracking-[0.08em] text-text-muted">room actions</h3>
+          <h3 className="m-0 font-bold tracking-[0.08em] text-text-muted">room actions</h3>
           <button className={`${actionButtonClass} w-full`} onClick={onInvite} type="button">
             {inviteStatus === "copied" ? "copied!" : "invite"}
           </button>
@@ -146,7 +146,7 @@ export function RoomScreen({
         </div>
 
         <div className="mt-[1.1rem]">
-          <h3 className="m-0 font-semibold uppercase tracking-[0.08em] text-text-muted">who&apos;s there</h3>
+          <h3 className="m-0 font-sbold tracking-[0.08em] text-text-muted">who&apos;s there</h3>
           {otherUsers.length === 0 ? (
             <p className="m-0 text-text-muted">it&apos;s just you for now</p>
           ) : (

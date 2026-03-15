@@ -28,8 +28,8 @@ export function NameRequiredModal({
         className="w-full max-w-[520px] rounded-[var(--radius)] border border-panel-border bg-panel p-4 shadow-modal"
         role="dialog"
       >
-        <h2 className="m-0 font-semibold uppercase tracking-[0.08em] text-text-muted" id="name-modal-title">
-          enter your call sign
+        <h2 className="m-0 font-semibold tracking-[0.08em] text-text-muted" id="name-modal-title">
+          and who might you be?
         </h2>
         <p className="mt-[0.7rem] text-text-muted" id="name-modal-description">
           Join room <strong>#{roomId}</strong>.
