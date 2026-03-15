@@ -1,19 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { RoomJoined } from "@council/shared";
+import type { RoomJoined, VoiceChannelsUpdate, VoiceSignalRelayed } from "@council/shared";
 import { Navigate, Route, Routes, useMatch, useNavigate } from "react-router-dom";
 import { socket } from "./lib/socket";
 import {
+  createVoiceChannelRequest,
   checkRoomRequest,
+  emitVoiceSignal,
   createRoomRequest,
   emitReactionToggle,
   emitTypingUpdate,
+  getVoiceChannelsRequest,
   joinRoomRequest,
+  joinVoiceChannelRequest,
+  leaveVoiceChannelRequest,
   leaveRoomRequest,
   renameDisplayNameRequest,
   sendMessageRequest,
 } from "./lib/chatClient";
 import { getRoomIdentity, saveRoomIdentity } from "./lib/persistence";
 import { getNormalizedRoomId, useAppStore } from "./store/useAppStore";
+import { VoiceMeshManager } from "./lib/webrtc/voiceMesh";
 import { AppHeader } from "./components/AppHeader";
 import { NameRequiredModal } from "./components/NameRequiredModal";
 import { LobbyScreen } from "./screens/LobbyScreen";
@@ -44,6 +50,7 @@ function AppShell() {
   const routeRoomId = routeMatch?.params.roomId ?? null;
   const suppressRouteAutoJoinRef = useRef(false);
   const typingIdleTimeoutRef = useRef<number | null>(null);
+  const voiceMeshRef = useRef<VoiceMeshManager | null>(null);
   const [nameModalMode, setNameModalMode] = useState<"join" | "rename">("join");
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [inviteStatus, setInviteStatus] = useState<"idle" | "copied" | "error">("idle");
@@ -57,6 +64,8 @@ function AppShell() {
     targetRouteRoomId,
     isNameModalOpen,
     presence,
+    voiceChannels,
+    activeVoiceChannelId,
     messages,
     typingBySessionId,
     activeReplyToMessageId,
@@ -77,8 +86,26 @@ function AppShell() {
     clearRouteTarget,
     setRouteIdentity,
     applyCurrentUserDisplayName,
+    applyVoiceChannelsUpdate,
+    setActiveVoiceChannelId,
     clearRoomSession,
   } = useAppStore();
+
+  const syncActiveVoiceChannel = useCallback(
+    (channels: typeof voiceChannels) => {
+      const currentSessionId = useAppStore.getState().currentUser?.sessionId;
+      if (!currentSessionId) {
+        setActiveVoiceChannelId(null);
+        return;
+      }
+
+      const joinedChannel = channels.find((channel) =>
+        channel.participants.some((participant) => participant.sessionId === currentSessionId),
+      );
+      setActiveVoiceChannelId(joinedChannel?.channelId ?? null);
+    },
+    [setActiveVoiceChannelId],
+  );
 
   const emitTyping = (isTyping: boolean) => {
     const roomId = useAppStore.getState().currentRoomId;
@@ -199,26 +226,95 @@ function AppShell() {
   ]);
 
   useEffect(() => {
+    if (voiceMeshRef.current) {
+      return;
+    }
+
+    voiceMeshRef.current = new VoiceMeshManager({
+      onSignal: (payload) => emitVoiceSignal(payload),
+      onError: (message) => setError(message),
+    });
+
+    return () => {
+      voiceMeshRef.current?.leaveChannel();
+      voiceMeshRef.current = null;
+    };
+  }, [setError]);
+
+  useEffect(() => {
     const onPresence = useAppStore.getState().applyPresence;
+    const onVoiceChannelsUpdated = (payload: VoiceChannelsUpdate) => {
+      useAppStore.getState().applyVoiceChannelsUpdate(payload);
+      syncActiveVoiceChannel(payload.channels);
+    };
     const onMessageCreated = useAppStore.getState().appendMessage;
     const onMessageReactionUpdated = useAppStore.getState().applyMessageReactionUpdated;
     const onTypingUpdate = useAppStore.getState().applyTypingUpdate;
     const onSystemError = (payload: { message: string }) => useAppStore.getState().applySystemError(payload.message);
+    const onVoiceSignal = (payload: VoiceSignalRelayed) => {
+      void voiceMeshRef.current?.handleSignal(payload);
+    };
 
     socket.on("room:presence", onPresence);
+    socket.on("voice:channels:updated", onVoiceChannelsUpdated);
     socket.on("message:created", onMessageCreated);
     socket.on("message:reaction-updated", onMessageReactionUpdated);
     socket.on("typing:update", onTypingUpdate);
     socket.on("system:error", onSystemError);
+    socket.on("voice:signal", onVoiceSignal);
 
     return () => {
       socket.off("room:presence", onPresence);
+      socket.off("voice:channels:updated", onVoiceChannelsUpdated);
       socket.off("message:created", onMessageCreated);
       socket.off("message:reaction-updated", onMessageReactionUpdated);
       socket.off("typing:update", onTypingUpdate);
       socket.off("system:error", onSystemError);
+      socket.off("voice:signal", onVoiceSignal);
     };
-  }, []);
+  }, [applyVoiceChannelsUpdate, syncActiveVoiceChannel]);
+
+  useEffect(() => {
+    const manager = voiceMeshRef.current;
+    if (!manager) {
+      return;
+    }
+
+    if (!currentRoomId || !currentUser || !activeVoiceChannelId) {
+      manager.leaveChannel();
+      return;
+    }
+
+    const activeChannel = voiceChannels.find((channel) => channel.channelId === activeVoiceChannelId);
+    if (!activeChannel) {
+      manager.leaveChannel();
+      return;
+    }
+
+    void manager.joinChannel({
+      roomId: currentRoomId,
+      channelId: activeChannel.channelId,
+      selfSessionId: currentUser.sessionId,
+      participants: activeChannel.participants,
+    });
+  }, [currentRoomId, currentUser, activeVoiceChannelId, voiceChannels]);
+
+  useEffect(() => {
+    if (!currentRoomId) {
+      setActiveVoiceChannelId(null);
+      return;
+    }
+
+    void (async () => {
+      try {
+        const update = await getVoiceChannelsRequest({ roomId: currentRoomId });
+        applyVoiceChannelsUpdate(update);
+        syncActiveVoiceChannel(update.channels);
+      } catch (voiceError) {
+        setError(voiceError instanceof Error ? voiceError.message : "Voice channels unavailable.");
+      }
+    })();
+  }, [currentRoomId, applyVoiceChannelsUpdate, setActiveVoiceChannelId, setError, syncActiveVoiceChannel]);
 
   useEffect(() => {
     return () => {
@@ -423,6 +519,53 @@ function AppShell() {
     });
   };
 
+  const handleCreateVoiceChannel = () => {
+    if (!currentRoomId) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const update = await createVoiceChannelRequest({ roomId: currentRoomId });
+        applyVoiceChannelsUpdate(update);
+      } catch (voiceError) {
+        setError(voiceError instanceof Error ? voiceError.message : "Voice channel creation failed.");
+      }
+    })();
+  };
+
+  const handleJoinVoiceChannel = (channelId: string) => {
+    if (!currentRoomId) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const update = await joinVoiceChannelRequest({ roomId: currentRoomId, channelId });
+        applyVoiceChannelsUpdate(update);
+        syncActiveVoiceChannel(update.channels);
+      } catch (voiceError) {
+        setError(voiceError instanceof Error ? voiceError.message : "Voice channel join failed.");
+      }
+    })();
+  };
+
+  const handleLeaveVoiceChannel = (channelId: string) => {
+    if (!currentRoomId) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const update = await leaveVoiceChannelRequest({ roomId: currentRoomId, channelId });
+        applyVoiceChannelsUpdate(update);
+        syncActiveVoiceChannel(update.channels);
+      } catch (voiceError) {
+        setError(voiceError instanceof Error ? voiceError.message : "Voice channel leave failed.");
+      }
+    })();
+  };
+
   return (
     <main className="relative h-screen min-h-screen h-[100dvh] overflow-hidden">
       <div
@@ -461,6 +604,8 @@ function AppShell() {
             currentRoomId={currentRoomId}
             currentUser={currentUser}
             presence={presence}
+            voiceChannels={voiceChannels}
+            activeVoiceChannelId={activeVoiceChannelId}
             typingBySessionId={typingBySessionId}
             messages={messages}
             activeReplyToMessageId={activeReplyToMessageId}
@@ -473,6 +618,9 @@ function AppShell() {
             onLeaveRoom={leaveRoom}
             onCloseInfoPanel={() => setIsInfoPanelOpen(false)}
             onRenameDisplayName={openRenameModal}
+            onCreateVoiceChannel={handleCreateVoiceChannel}
+            onJoinVoiceChannel={handleJoinVoiceChannel}
+            onLeaveVoiceChannel={handleLeaveVoiceChannel}
             onSelectReply={setActiveReplyToMessageId}
             onClearReply={clearActiveReplyToMessageId}
             onToggleReaction={handleToggleReaction}

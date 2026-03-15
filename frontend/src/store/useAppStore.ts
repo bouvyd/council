@@ -6,6 +6,8 @@ import type {
   RoomJoined,
   TypingUpdate,
   UserIdentity,
+  VoiceChannel,
+  VoiceChannelsUpdate,
 } from "@council/shared";
 
 type JoinMode = "push" | "replace";
@@ -27,6 +29,9 @@ type AppStore = {
   isNameModalOpen: boolean;
   presenceRoomId: string | null;
   presence: UserIdentity[];
+  voiceRoomId: string | null;
+  voiceChannels: VoiceChannel[];
+  activeVoiceChannelId: string | null;
   messages: ChatMessage[];
   typingBySessionId: Record<string, boolean>;
   activeReplyToMessageId: string | null;
@@ -48,6 +53,8 @@ type AppStore = {
   prepareRouteTarget: (roomId: string) => void;
   setRouteIdentity: (name: string) => void;
   applyPresence: (payload: PresenceUpdate) => void;
+  setActiveVoiceChannelId: (channelId: string | null) => void;
+  applyVoiceChannelsUpdate: (payload: VoiceChannelsUpdate) => void;
   appendMessage: (payload: ChatMessage) => void;
   applyMessageReactionUpdated: (payload: MessageReactionUpdated) => void;
   applyTypingUpdate: (payload: TypingUpdate) => void;
@@ -76,6 +83,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
   isNameModalOpen: false,
   presenceRoomId: null,
   presence: [],
+  voiceRoomId: null,
+  voiceChannels: [],
+  activeVoiceChannelId: null,
   messages: [],
   typingBySessionId: {},
   activeReplyToMessageId: null,
@@ -121,6 +131,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({
       presence: payload.users,
       presenceRoomId: payload.roomId,
+    });
+  },
+
+  setActiveVoiceChannelId: (channelId) => set({ activeVoiceChannelId: channelId }),
+
+  applyVoiceChannelsUpdate: (payload) => {
+    const state = get();
+    const activeRoomId = state.currentRoomId ?? state.pendingJoinRoomId;
+
+    if (!activeRoomId || normalizeRoomId(payload.roomId) !== normalizeRoomId(activeRoomId)) {
+      return;
+    }
+
+    set({
+      voiceRoomId: payload.roomId,
+      voiceChannels: payload.channels,
     });
   },
 
@@ -198,6 +224,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
       presence: nextPresence,
       presenceRoomId: joined.roomId,
       messages: [],
+      voiceRoomId: null,
+      voiceChannels: [],
+      activeVoiceChannelId: null,
       typingBySessionId: {},
       activeReplyToMessageId: null,
       error: null,
@@ -228,6 +257,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
       pendingJoinRoomId: null,
       presenceRoomId: null,
       presence: [],
+      voiceRoomId: null,
+      voiceChannels: [],
+      activeVoiceChannelId: null,
       messages: [],
       typingBySessionId: {},
       activeReplyToMessageId: null,

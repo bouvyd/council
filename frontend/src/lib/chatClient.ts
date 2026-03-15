@@ -7,6 +7,12 @@ import type {
   RoomJoined,
   RoomRef,
   SendMessageInput,
+  VoiceChannelCreateInput,
+  VoiceChannelJoinInput,
+  VoiceChannelLeaveInput,
+  VoiceChannelsGetInput,
+  VoiceChannelsUpdate,
+  VoiceSignalRelayInput,
 } from "@council/shared";
 import { socket } from "./socket";
 
@@ -96,4 +102,56 @@ export function emitTypingUpdate(input: { roomId: string; isTyping: boolean }) {
 
 export function emitReactionToggle(input: ReactionToggleInput) {
   socket.emit("reaction:toggle", input);
+}
+
+export function getVoiceChannelsRequest(input: VoiceChannelsGetInput): Promise<VoiceChannelsUpdate> {
+  return new Promise((resolve, reject) => {
+    socket.emit("voice:channels:get", input, (result) => {
+      try {
+        resolve(fromAck(result));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+export function createVoiceChannelRequest(input: VoiceChannelCreateInput): Promise<VoiceChannelsUpdate> {
+  return new Promise((resolve, reject) => {
+    socket.emit("voice:channel:create", input, (result) => {
+      try {
+        resolve(fromAck(result));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+export function joinVoiceChannelRequest(input: VoiceChannelJoinInput): Promise<VoiceChannelsUpdate> {
+  return new Promise((resolve, reject) => {
+    socket.emit("voice:channel:join", input, (result) => {
+      try {
+        resolve(fromAck(result));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+export function leaveVoiceChannelRequest(input: VoiceChannelLeaveInput): Promise<VoiceChannelsUpdate> {
+  return new Promise((resolve, reject) => {
+    socket.emit("voice:channel:leave", input, (result) => {
+      try {
+        resolve(fromAck(result));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+export function emitVoiceSignal(input: VoiceSignalRelayInput) {
+  socket.emit("voice:signal", input);
 }

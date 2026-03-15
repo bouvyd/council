@@ -1,8 +1,9 @@
-import { removeSocketFromRoom, getPresenceUpdate } from "./roomState";
+import { removeSocketFromRoom, getPresenceUpdate, getVoiceChannelsUpdate, removeSocketFromVoiceChannels } from "./roomState";
 import { registerRoomHandlers } from "./handlers/roomHandlers";
 import { registerMessageHandlers } from "./handlers/messageHandlers";
 import { registerTypingHandlers } from "./handlers/typingHandlers";
 import { registerReactionHandlers } from "./handlers/reactionHandlers";
+import { registerVoiceHandlers } from "./handlers/voiceHandlers";
 import type { RoomState, TypedIO } from "./types";
 
 export function registerSocketHandlers(io: TypedIO, rooms: Map<string, RoomState>): void {
@@ -35,9 +36,18 @@ export function registerSocketHandlers(io: TypedIO, rooms: Map<string, RoomState
     registerTypingHandlers(handlerContext);
     registerMessageHandlers(handlerContext);
     registerReactionHandlers(handlerContext);
+    registerVoiceHandlers(handlerContext);
 
     socket.on("disconnect", () => {
       emitTypingUpdate(false);
+
+      const existingRoom = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
+      if (existingRoom) {
+        const changed = removeSocketFromVoiceChannels(existingRoom, socket.id);
+        if (changed) {
+          io.to(existingRoom.id).emit("voice:channels:updated", getVoiceChannelsUpdate(existingRoom));
+        }
+      }
 
       const room = removeSocketFromRoom(rooms, socket.id, socket.data.roomId);
       if (room) {
@@ -46,6 +56,7 @@ export function registerSocketHandlers(io: TypedIO, rooms: Map<string, RoomState
 
       socket.data.roomId = undefined;
       socket.data.user = undefined;
+      socket.data.voiceChannelId = undefined;
       console.log(`Socket disconnected: ${socket.id}`);
     });
   });

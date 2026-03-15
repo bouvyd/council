@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { ChatMessage, UserIdentity } from "@council/shared";
-import { createRoomId, getPresenceUpdate, removeSocketFromRoom } from "../roomState";
+import { createDefaultVoiceChannels, createRoomId, getPresenceUpdate, getVoiceChannelsUpdate, removeSocketFromRoom } from "../roomState";
 import type { HandlerContext } from "./context";
 
 export function registerRoomHandlers({ io, socket, rooms, emitTypingUpdate }: HandlerContext) {
@@ -15,6 +15,7 @@ export function registerRoomHandlers({ io, socket, rooms, emitTypingUpdate }: Ha
     const previousRoom = removeSocketFromRoom(rooms, socket.id, socket.data.roomId);
     if (previousRoom) {
       io.to(previousRoom.id).emit("room:presence", getPresenceUpdate(previousRoom));
+      io.to(previousRoom.id).emit("voice:channels:updated", getVoiceChannelsUpdate(previousRoom));
     }
     if (socket.data.roomId) {
       socket.leave(socket.data.roomId);
@@ -30,6 +31,7 @@ export function registerRoomHandlers({ io, socket, rooms, emitTypingUpdate }: Ha
       id: roomId,
       users: new Map([[socket.id, user]]),
       messages: new Map(),
+      voiceChannels: createDefaultVoiceChannels(),
     });
 
     socket.data.roomId = roomId;
@@ -40,6 +42,10 @@ export function registerRoomHandlers({ io, socket, rooms, emitTypingUpdate }: Ha
       roomId,
       users: [user],
     });
+    const createdRoom = rooms.get(roomId);
+    if (createdRoom) {
+      io.to(roomId).emit("voice:channels:updated", getVoiceChannelsUpdate(createdRoom));
+    }
 
     callback({ ok: true, data: { roomId, user } });
   });
@@ -74,6 +80,7 @@ export function registerRoomHandlers({ io, socket, rooms, emitTypingUpdate }: Ha
     const previousRoom = removeSocketFromRoom(rooms, socket.id, socket.data.roomId);
     if (previousRoom) {
       io.to(previousRoom.id).emit("room:presence", getPresenceUpdate(previousRoom));
+      io.to(previousRoom.id).emit("voice:channels:updated", getVoiceChannelsUpdate(previousRoom));
     }
     if (socket.data.roomId) {
       socket.leave(socket.data.roomId);
@@ -90,6 +97,7 @@ export function registerRoomHandlers({ io, socket, rooms, emitTypingUpdate }: Ha
     socket.join(roomId);
 
     io.to(room.id).emit("room:presence", getPresenceUpdate(room));
+    io.to(room.id).emit("voice:channels:updated", getVoiceChannelsUpdate(room));
     callback({ ok: true, data: { roomId: room.id, user } });
   });
 
@@ -106,11 +114,13 @@ export function registerRoomHandlers({ io, socket, rooms, emitTypingUpdate }: Ha
     const room = removeSocketFromRoom(rooms, socket.id, roomId);
     if (room) {
       io.to(room.id).emit("room:presence", getPresenceUpdate(room));
+      io.to(room.id).emit("voice:channels:updated", getVoiceChannelsUpdate(room));
     }
 
     socket.leave(roomId);
     socket.data.roomId = undefined;
     socket.data.user = undefined;
+    socket.data.voiceChannelId = undefined;
 
     callback({ ok: true, data: { roomId } });
   });

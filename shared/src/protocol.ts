@@ -101,6 +101,62 @@ export type MessageReactionUpdated = {
   reactions: Record<string, string[]>;
 };
 
+export type VoiceChannelRef = {
+  roomId: string;
+  channelId: string;
+};
+
+export type VoiceChannel = VoiceChannelRef & {
+  name: string;
+  isDefault: boolean;
+  participants: UserIdentity[];
+};
+
+export type VoiceChannelsUpdate = {
+  roomId: string;
+  channels: VoiceChannel[];
+};
+
+export type VoiceChannelsGetInput = {
+  roomId: string;
+};
+
+export type VoiceChannelCreateInput = {
+  roomId: string;
+  name?: string;
+};
+
+export type VoiceChannelJoinInput = VoiceChannelRef;
+
+export type VoiceChannelLeaveInput = VoiceChannelRef;
+
+export type VoiceSignal =
+  | {
+      type: "offer";
+      sdp: string;
+    }
+  | {
+      type: "answer";
+      sdp: string;
+    }
+  | {
+      type: "ice";
+      candidate: string;
+      sdpMid?: string | null;
+      sdpMLineIndex?: number | null;
+      usernameFragment?: string | null;
+    };
+
+export type VoiceSignalRelayInput = VoiceChannelRef & {
+  toSessionId: string;
+  signal: VoiceSignal;
+};
+
+export type VoiceSignalRelayed = VoiceChannelRef & {
+  fromSessionId: string;
+  signal: VoiceSignal;
+};
+
 export interface ClientToServerEvents {
   "room:create": (
     payload: CreateRoomInput,
@@ -125,6 +181,23 @@ export interface ClientToServerEvents {
   ) => void;
   "typing:update": (payload: TypingUpdateInput) => void;
   "reaction:toggle": (payload: ReactionToggleInput) => void;
+  "voice:channels:get": (
+    payload: VoiceChannelsGetInput,
+    callback: (result: AckResult<VoiceChannelsUpdate>) => void,
+  ) => void;
+  "voice:channel:create": (
+    payload: VoiceChannelCreateInput,
+    callback: (result: AckResult<VoiceChannelsUpdate>) => void,
+  ) => void;
+  "voice:channel:join": (
+    payload: VoiceChannelJoinInput,
+    callback: (result: AckResult<VoiceChannelsUpdate>) => void,
+  ) => void;
+  "voice:channel:leave": (
+    payload: VoiceChannelLeaveInput,
+    callback: (result: AckResult<VoiceChannelsUpdate>) => void,
+  ) => void;
+  "voice:signal": (payload: VoiceSignalRelayInput) => void;
 }
 
 export interface ServerToClientEvents {
@@ -133,4 +206,6 @@ export interface ServerToClientEvents {
   "message:reaction-updated": (payload: MessageReactionUpdated) => void;
   "typing:update": (payload: TypingUpdate) => void;
   "system:error": (payload: { message: string }) => void;
+  "voice:channels:updated": (payload: VoiceChannelsUpdate) => void;
+  "voice:signal": (payload: VoiceSignalRelayed) => void;
 }

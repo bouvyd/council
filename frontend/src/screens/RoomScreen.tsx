@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChatMessage, UserIdentity } from "@council/shared";
+import type { ChatMessage, UserIdentity, VoiceChannel } from "@council/shared";
 import { MessageComposer } from "../components/MessageComposer";
 import { MessageItem } from "../components/MessageItem";
 
@@ -7,6 +7,8 @@ type RoomScreenProps = {
   currentRoomId: string;
   currentUser: UserIdentity | null;
   presence: UserIdentity[];
+  voiceChannels: VoiceChannel[];
+  activeVoiceChannelId: string | null;
   typingBySessionId: Record<string, boolean>;
   messages: ChatMessage[];
   activeReplyToMessageId: string | null;
@@ -19,6 +21,9 @@ type RoomScreenProps = {
   onLeaveRoom: () => void;
   onCloseInfoPanel: () => void;
   onRenameDisplayName: () => void;
+  onCreateVoiceChannel: () => void;
+  onJoinVoiceChannel: (channelId: string) => void;
+  onLeaveVoiceChannel: (channelId: string) => void;
   onSelectReply: (messageId: string) => void;
   onClearReply: () => void;
   onToggleReaction: (messageId: string, emoji: string) => void;
@@ -37,6 +42,8 @@ export function RoomScreen({
   currentRoomId,
   currentUser,
   presence,
+  voiceChannels,
+  activeVoiceChannelId,
   typingBySessionId,
   messages,
   activeReplyToMessageId,
@@ -49,6 +56,9 @@ export function RoomScreen({
   onLeaveRoom,
   onCloseInfoPanel,
   onRenameDisplayName,
+  onCreateVoiceChannel,
+  onJoinVoiceChannel,
+  onLeaveVoiceChannel,
   onSelectReply,
   onClearReply,
   onToggleReaction,
@@ -63,6 +73,7 @@ export function RoomScreen({
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   const otherUsers = presence.filter((user) => user.sessionId !== currentUser?.sessionId);
+  const canCreateVoiceChannel = voiceChannels.length < 3;
   const messageById = useMemo(() => {
     const map = new Map<string, ChatMessage>();
     for (const message of messages) {
@@ -169,6 +180,69 @@ export function RoomScreen({
               ))}
             </ul>
           )}
+        </div>
+
+        <div className="mt-[1.1rem] grid gap-[0.45rem]">
+          <div className="flex items-center justify-between gap-[0.45rem]">
+            <h3 className="m-0 font-bold tracking-[0.08em] text-text-muted">voice channels</h3>
+            <button
+              className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.45rem] py-[0.18rem] text-[0.82rem] text-text-muted hover:border-primary hover:text-primary-bright disabled:cursor-not-allowed disabled:opacity-45"
+              type="button"
+              onClick={onCreateVoiceChannel}
+              disabled={!canCreateVoiceChannel}
+            >
+              + channel
+            </button>
+          </div>
+
+          <ul className="m-0 grid list-none gap-[0.4rem] p-0">
+            {voiceChannels.map((channel) => {
+              const isJoined = activeVoiceChannelId === channel.channelId;
+              return (
+                <li
+                  key={channel.channelId}
+                  className={`rounded-[var(--radius)] border px-[0.5rem] py-[0.42rem] ${isJoined ? "border-primary-bright bg-primary-soft-10" : "border-presence-border bg-surface-muted"}`}
+                >
+                  <div className="flex items-center justify-between gap-[0.45rem]">
+                    <span className="text-[0.9rem] text-text">
+                      {channel.name}
+                      {channel.isDefault ? <span className="ml-[0.3rem] text-text-muted">(default)</span> : null}
+                    </span>
+                    <span className="text-[0.8rem] text-text-muted">{channel.participants.length}/6</span>
+                  </div>
+                  <div className="mt-[0.32rem] flex flex-wrap items-center gap-[0.35rem]">
+                    {channel.participants.map((participant) => (
+                      <span
+                        className="rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.32rem] py-[0.08rem] text-[0.72rem] text-text-muted"
+                        key={participant.sessionId}
+                      >
+                        {participant.displayName}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-[0.4rem]">
+                    {isJoined ? (
+                      <button
+                        className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.45rem] py-[0.2rem] text-[0.8rem] text-text-muted hover:border-primary hover:text-primary-bright"
+                        type="button"
+                        onClick={() => onLeaveVoiceChannel(channel.channelId)}
+                      >
+                        leave voice
+                      </button>
+                    ) : (
+                      <button
+                        className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.45rem] py-[0.2rem] text-[0.8rem] text-text-muted hover:border-primary hover:text-primary-bright"
+                        type="button"
+                        onClick={() => onJoinVoiceChannel(channel.channelId)}
+                      >
+                        join voice
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </aside>
 

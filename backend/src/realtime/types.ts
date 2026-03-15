@@ -9,12 +9,21 @@ import type {
 export type SocketData = {
   roomId?: string;
   user?: UserIdentity;
+  voiceChannelId?: string;
+};
+
+export type VoiceChannelState = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  participantSessionIds: Set<string>;
 };
 
 export type RoomState = {
   id: string;
   users: Map<string, UserIdentity>;
   messages: Map<string, ChatMessage>;
+  voiceChannels: Map<string, VoiceChannelState>;
 };
 
 export type TypedIO = Server<
