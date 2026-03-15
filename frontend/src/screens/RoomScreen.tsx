@@ -9,6 +9,8 @@ type RoomScreenProps = {
   presence: UserIdentity[];
   voiceChannels: VoiceChannel[];
   activeVoiceChannelId: string | null;
+  isLocalAudioMuted: boolean;
+  mutedVoiceParticipantIds: string[];
   typingBySessionId: Record<string, boolean>;
   messages: ChatMessage[];
   activeReplyToMessageId: string | null;
@@ -24,6 +26,9 @@ type RoomScreenProps = {
   onCreateVoiceChannel: () => void;
   onJoinVoiceChannel: (channelId: string) => void;
   onLeaveVoiceChannel: (channelId: string) => void;
+  onToggleLocalAudioMute: () => void;
+  onDisconnectVoice: () => void;
+  onToggleParticipantAudio: (sessionId: string) => void;
   onSelectReply: (messageId: string) => void;
   onClearReply: () => void;
   onToggleReaction: (messageId: string, emoji: string) => void;
@@ -44,6 +49,8 @@ export function RoomScreen({
   presence,
   voiceChannels,
   activeVoiceChannelId,
+  isLocalAudioMuted,
+  mutedVoiceParticipantIds,
   typingBySessionId,
   messages,
   activeReplyToMessageId,
@@ -59,6 +66,9 @@ export function RoomScreen({
   onCreateVoiceChannel,
   onJoinVoiceChannel,
   onLeaveVoiceChannel,
+  onToggleLocalAudioMute,
+  onDisconnectVoice,
+  onToggleParticipantAudio,
   onSelectReply,
   onClearReply,
   onToggleReaction,
@@ -74,6 +84,7 @@ export function RoomScreen({
 
   const otherUsers = presence.filter((user) => user.sessionId !== currentUser?.sessionId);
   const canCreateVoiceChannel = voiceChannels.length < 3;
+  const activeVoiceChannel = voiceChannels.find((channel) => channel.channelId === activeVoiceChannelId) ?? null;
   const messageById = useMemo(() => {
     const map = new Map<string, ChatMessage>();
     for (const message of messages) {
@@ -126,7 +137,7 @@ export function RoomScreen({
 
       <aside
         id="room-info-panel"
-        className={`${panelClass} fixed inset-y-0 left-0 z-30 w-[min(88vw,320px)] overflow-y-auto p-[0.95rem] transition-transform duration-200 ease-out min-[901px]:static min-[901px]:order-1 min-[901px]:z-auto min-[901px]:h-full min-[901px]:max-h-full min-[901px]:w-auto min-[901px]:translate-x-0 min-[901px]:overflow-y-auto min-[901px]:transition-none ${isInfoPanelOpen ? "translate-x-0" : "-translate-x-full min-[901px]:translate-x-0"}`}
+        className={`${panelClass} fixed inset-y-0 left-0 z-30 flex w-[min(88vw,320px)] flex-col overflow-y-auto p-[0.95rem] transition-transform duration-200 ease-out min-[901px]:static min-[901px]:order-1 min-[901px]:z-auto min-[901px]:h-full min-[901px]:max-h-full min-[901px]:w-auto min-[901px]:translate-x-0 min-[901px]:overflow-y-auto min-[901px]:transition-none ${isInfoPanelOpen ? "translate-x-0" : "-translate-x-full min-[901px]:translate-x-0"}`}
       >
         <div className="mb-[0.75rem] flex items-center justify-between min-[901px]:hidden">
           <h3 className="m-0 font-bold tracking-[0.08em] text-text-muted">room info</h3>
@@ -139,111 +150,154 @@ export function RoomScreen({
           </button>
         </div>
 
-        <p>
-          take a seat, {" "}
-          <span
-            className="mt-[0.8rem] cursor-pointer text-primary [text-shadow:0_0_8px_var(--primary-soft)] hover:underline hover:decoration-primary-bright"
-            onClick={onRenameDisplayName}
-          >
-            {currentUser?.displayName}
-          </span>
-        </p>
-
-        <div className="mt-[1rem] grid gap-[0.45rem] min-[901px]:hidden">
-          <h3 className="m-0 font-bold tracking-[0.08em] text-text-muted">room actions</h3>
-          <button className={`${actionButtonClass} w-full`} onClick={onInvite} type="button">
-            {inviteStatus === "copied" ? "copied!" : "invite"}
-          </button>
-          <button className={`${actionButtonClass} w-full`} onClick={onLeaveRoom} type="button" disabled={submitting}>
-            leave room
-          </button>
-          {inviteStatus === "error" ? <span className="text-danger">copy failed</span> : null}
-          <p className="m-0 text-[0.82rem] text-text-muted">share #{currentRoomId} with teammates</p>
-        </div>
-
-        <div className="mt-[1.1rem]">
-          <h3 className="m-0 font-sbold tracking-[0.08em] text-text-muted">who&apos;s there</h3>
-          {otherUsers.length === 0 ? (
-            <p className="m-0 text-text-muted">it&apos;s just you for now</p>
-          ) : (
-            <ul className="mt-[0.7rem] grid list-none gap-[0.45rem] p-0">
-              {otherUsers.map((user) => (
-                <li
-                  className="flex items-baseline justify-between rounded-[var(--radius)] border border-presence-border bg-surface-muted px-[0.52rem] py-[0.38rem] text-text"
-                  key={user.sessionId}
-                >
-                  {user.displayName}
-                  {typingBySessionId[user.sessionId] ? (
-                    <span className="tracking-[0.02em] text-text-muted">typing...</span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="mt-[1.1rem] grid gap-[0.45rem]">
-          <div className="flex items-center justify-between gap-[0.45rem]">
-            <h3 className="m-0 font-bold tracking-[0.08em] text-text-muted">voice channels</h3>
-            <button
-              className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.45rem] py-[0.18rem] text-[0.82rem] text-text-muted hover:border-primary hover:text-primary-bright disabled:cursor-not-allowed disabled:opacity-45"
-              type="button"
-              onClick={onCreateVoiceChannel}
-              disabled={!canCreateVoiceChannel}
+        <div className="flex-1">
+          <p>
+            take a seat, {" "}
+            <span
+              className="mt-[0.8rem] cursor-pointer text-primary [text-shadow:0_0_8px_var(--primary-soft)] hover:underline hover:decoration-primary-bright"
+              onClick={onRenameDisplayName}
             >
-              + channel
+              {currentUser?.displayName}
+            </span>
+          </p>
+
+          <div className="mt-[1rem] grid gap-[0.45rem] min-[901px]:hidden">
+            <h3 className="m-0 font-bold tracking-[0.08em] text-text-muted">room actions</h3>
+            <button className={`${actionButtonClass} w-full`} onClick={onInvite} type="button">
+              {inviteStatus === "copied" ? "copied!" : "invite"}
             </button>
+            <button className={`${actionButtonClass} w-full`} onClick={onLeaveRoom} type="button" disabled={submitting}>
+              leave room
+            </button>
+            {inviteStatus === "error" ? <span className="text-danger">copy failed</span> : null}
+            <p className="m-0 text-[0.82rem] text-text-muted">share #{currentRoomId} with teammates</p>
           </div>
 
-          <ul className="m-0 grid list-none gap-[0.4rem] p-0">
-            {voiceChannels.map((channel) => {
-              const isJoined = activeVoiceChannelId === channel.channelId;
-              return (
-                <li
-                  key={channel.channelId}
-                  className={`rounded-[var(--radius)] border px-[0.5rem] py-[0.42rem] ${isJoined ? "border-primary-bright bg-primary-soft-10" : "border-presence-border bg-surface-muted"}`}
-                >
-                  <div className="flex items-center justify-between gap-[0.45rem]">
-                    <span className="text-[0.9rem] text-text">
-                      {channel.name}
-                      {channel.isDefault ? <span className="ml-[0.3rem] text-text-muted">(default)</span> : null}
-                    </span>
-                    <span className="text-[0.8rem] text-text-muted">{channel.participants.length}/6</span>
-                  </div>
-                  <div className="mt-[0.32rem] flex flex-wrap items-center gap-[0.35rem]">
-                    {channel.participants.map((participant) => (
-                      <span
-                        className="rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.32rem] py-[0.08rem] text-[0.72rem] text-text-muted"
-                        key={participant.sessionId}
-                      >
-                        {participant.displayName}
+          <div className="mt-[1.1rem]">
+            <h3 className="m-0 font-sbold tracking-[0.08em] text-text-muted">who&apos;s there</h3>
+            {otherUsers.length === 0 ? (
+              <p className="m-0 text-text-muted">it&apos;s just you for now</p>
+            ) : (
+              <ul className="mt-[0.7rem] grid list-none gap-[0.45rem] p-0">
+                {otherUsers.map((user) => (
+                  <li
+                    className="flex items-baseline justify-between rounded-[var(--radius)] border border-presence-border bg-surface-muted px-[0.52rem] py-[0.38rem] text-text"
+                    key={user.sessionId}
+                  >
+                    {user.displayName}
+                    {typingBySessionId[user.sessionId] ? (
+                      <span className="tracking-[0.02em] text-text-muted">typing...</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="mt-[1.1rem] grid gap-[0.45rem]">
+            <div className="flex items-center justify-between gap-[0.45rem]">
+              <h3 className="m-0 font-bold tracking-[0.08em] text-text-muted">voice channels</h3>
+              <button
+                className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.45rem] py-[0.18rem] text-[0.82rem] text-text-muted hover:border-primary hover:text-primary-bright disabled:cursor-not-allowed disabled:opacity-45"
+                type="button"
+                onClick={onCreateVoiceChannel}
+                disabled={!canCreateVoiceChannel}
+              >
+                + channel
+              </button>
+            </div>
+
+            <ul className="m-0 grid list-none gap-[0.4rem] p-0">
+              {voiceChannels.map((channel) => {
+                const isJoined = activeVoiceChannelId === channel.channelId;
+                return (
+                  <li
+                    key={channel.channelId}
+                    className={`rounded-[var(--radius)] border px-[0.5rem] py-[0.42rem] ${isJoined ? "border-primary-bright bg-primary-soft-10" : "border-presence-border bg-surface-muted"}`}
+                  >
+                    <div className="flex items-center justify-between gap-[0.45rem]">
+                      <span className="text-[0.9rem] text-text">
+                        {channel.name}
+                        {channel.isDefault ? <span className="ml-[0.3rem] text-text-muted">(default)</span> : null}
                       </span>
-                    ))}
-                  </div>
-                  <div className="mt-[0.4rem]">
-                    {isJoined ? (
-                      <button
-                        className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.45rem] py-[0.2rem] text-[0.8rem] text-text-muted hover:border-primary hover:text-primary-bright"
-                        type="button"
-                        onClick={() => onLeaveVoiceChannel(channel.channelId)}
-                      >
-                        leave voice
-                      </button>
-                    ) : (
-                      <button
-                        className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.45rem] py-[0.2rem] text-[0.8rem] text-text-muted hover:border-primary hover:text-primary-bright"
-                        type="button"
-                        onClick={() => onJoinVoiceChannel(channel.channelId)}
-                      >
-                        join voice
-                      </button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                      <span className="text-[0.8rem] text-text-muted">{channel.participants.length}/6</span>
+                    </div>
+                    <div className="mt-[0.32rem] flex flex-wrap items-center gap-[0.35rem]">
+                      {channel.participants.map((participant) => {
+                        const isParticipantMuted = mutedVoiceParticipantIds.includes(participant.sessionId);
+                        const canToggleParticipantAudio = isJoined && participant.sessionId !== currentUser?.sessionId;
+
+                        return canToggleParticipantAudio ? (
+                          <button
+                            key={participant.sessionId}
+                            className={`cursor-pointer rounded-[var(--radius)] border border-control-border px-[0.32rem] py-[0.08rem] text-[0.72rem] ${isParticipantMuted ? "bg-surface-muted text-text-muted line-through" : "bg-surface-control text-text-muted hover:border-primary hover:text-primary-bright"}`}
+                            type="button"
+                            onClick={() => onToggleParticipantAudio(participant.sessionId)}
+                            aria-pressed={isParticipantMuted}
+                            title={isParticipantMuted ? "Unmute participant" : "Mute participant"}
+                          >
+                            {participant.displayName}
+                          </button>
+                        ) : (
+                          <span
+                            className={`rounded-[var(--radius)] border border-control-border px-[0.32rem] py-[0.08rem] text-[0.72rem] ${isParticipantMuted ? "bg-surface-muted text-text-muted line-through" : "bg-surface-control text-text-muted"}`}
+                            key={participant.sessionId}
+                          >
+                            {participant.displayName}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-[0.4rem]">
+                      {isJoined ? (
+                        <button
+                          className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.45rem] py-[0.2rem] text-[0.8rem] text-text-muted hover:border-primary hover:text-primary-bright"
+                          type="button"
+                          onClick={() => onLeaveVoiceChannel(channel.channelId)}
+                        >
+                          leave voice
+                        </button>
+                      ) : (
+                        <button
+                          className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.45rem] py-[0.2rem] text-[0.8rem] text-text-muted hover:border-primary hover:text-primary-bright"
+                          type="button"
+                          onClick={() => onJoinVoiceChannel(channel.channelId)}
+                        >
+                          join voice
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </div>
+
+        {activeVoiceChannel ? (
+          <div className="mt-[1.2rem] border-t border-panel-border pt-[0.9rem]">
+            <h3 className="m-0 font-bold tracking-[0.08em] text-text-muted">voice controls</h3>
+            <p className="mb-[0.65rem] mt-[0.3rem] text-[0.82rem] text-text-muted">
+              connected to {activeVoiceChannel.name}
+            </p>
+            <div className="grid gap-[0.45rem]">
+              <button
+                className={`${actionButtonClass} w-full`}
+                type="button"
+                onClick={onToggleLocalAudioMute}
+              >
+                {isLocalAudioMuted ? "unmute" : "mute"}
+              </button>
+              <button
+                className={`${actionButtonClass} w-full`}
+                type="button"
+                onClick={onDisconnectVoice}
+              >
+                disconnect
+              </button>
+            </div>
+          </div>
+        ) : null}
       </aside>
 
       <div className={`${panelClass} flex flex-col order-1 min-h-0 overflow-hidden p-[0.95rem] min-[901px]:order-2`}>

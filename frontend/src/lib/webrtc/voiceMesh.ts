@@ -36,8 +36,10 @@ export class VoiceMeshManager {
   private channelId: string | null = null;
   private selfSessionId: string | null = null;
   private localStream: MediaStream | null = null;
+  private localAudioMuted = false;
   private peerConnections = new Map<string, RTCPeerConnection>();
   private pendingIceCandidates = new Map<string, RTCIceCandidateInit[]>();
+  private mutedRemoteSessionIds = new Set<string>();
   private remoteAudioElements = new Map<string, HTMLAudioElement>();
 
   constructor(options: VoiceMeshOptions) {
@@ -96,6 +98,24 @@ export class VoiceMeshManager {
     this.roomId = null;
     this.channelId = null;
     this.selfSessionId = null;
+  }
+
+  setLocalAudioMuted(muted: boolean) {
+    this.localAudioMuted = muted;
+    this.applyLocalAudioMuteState();
+  }
+
+  setRemoteAudioMuted(peerSessionId: string, muted: boolean) {
+    if (muted) {
+      this.mutedRemoteSessionIds.add(peerSessionId);
+    } else {
+      this.mutedRemoteSessionIds.delete(peerSessionId);
+    }
+
+    const audioElement = this.remoteAudioElements.get(peerSessionId);
+    if (audioElement) {
+      audioElement.muted = muted;
+    }
   }
 
   async handleSignal(payload: VoiceSignalRelayed) {
@@ -177,6 +197,7 @@ export class VoiceMeshManager {
         audio: true,
         video: false,
       });
+      this.applyLocalAudioMuteState();
     } catch (error) {
       if (error instanceof DOMException) {
         if (error.name === "NotAllowedError") {
@@ -254,6 +275,8 @@ export class VoiceMeshManager {
       for (const track of this.localStream.getTracks()) {
         peerConnection.addTrack(track, this.localStream);
       }
+
+      this.applyLocalAudioMuteState(peerConnection);
     }
 
     peerConnection.onicecandidate = (event) => {
@@ -289,6 +312,7 @@ export class VoiceMeshManager {
 
       const audioElement = document.createElement("audio");
       audioElement.autoplay = true;
+      audioElement.muted = this.mutedRemoteSessionIds.has(peerSessionId);
       audioElement.setAttribute("playsinline", "true");
       audioElement.srcObject = stream;
       audioElement.style.display = "none";
@@ -343,6 +367,47 @@ export class VoiceMeshManager {
       }
 
       throw error;
+    }
+  }
+
+  private applyLocalAudioMuteState(peerConnection?: RTCPeerConnection) {
+    if (this.localStream) {
+      for (const track of this.localStream.getAudioTracks()) {
+        track.enabled = !this.localAudioMuted;
+      }
+    }
+
+    const targetConnections = peerConnection ? [peerConnection] : Array.from(this.peerConnections.values());
+
+    for (const connection of targetConnections) {
+      for (const sender of connection.getSenders()) {
+        if (sender.track?.kind !== "audio") {
+          continue;
+        }
+
+        sender.track.enabled = !this.localAudioMuted;
+
+        if (typeof sender.getParameters !== "function" || typeof sender.setParameters !== "function") {
+          continue;
+        }
+
+        const parameters = sender.getParameters();
+        if (!parameters.encodings || parameters.encodings.length === 0) {
+          continue;
+        }
+
+        const nextParameters: RTCRtpSendParameters = {
+          ...parameters,
+          encodings: parameters.encodings.map((encoding) => ({
+            ...encoding,
+            active: !this.localAudioMuted,
+          })),
+        };
+
+        void sender.setParameters(nextParameters).catch(() => {
+          // Some browsers reject runtime encoding updates; track.enabled still covers mute.
+        });
+      }
     }
   }
 }

@@ -54,6 +54,8 @@ function AppShell() {
   const [nameModalMode, setNameModalMode] = useState<"join" | "rename">("join");
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [inviteStatus, setInviteStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [isLocalAudioMuted, setIsLocalAudioMuted] = useState(false);
+  const [mutedVoiceParticipantIds, setMutedVoiceParticipantIds] = useState<string[]>([]);
 
   const {
     displayName,
@@ -302,6 +304,7 @@ function AppShell() {
   useEffect(() => {
     if (!currentRoomId) {
       setActiveVoiceChannelId(null);
+      setMutedVoiceParticipantIds([]);
       return;
     }
 
@@ -321,6 +324,15 @@ function AppShell() {
       clearTypingIdleTimer();
     };
   }, []);
+
+  useEffect(() => {
+    const activeChannel = voiceChannels.find((channel) => channel.channelId === activeVoiceChannelId);
+    const activeParticipantIds = new Set(activeChannel?.participants.map((participant) => participant.sessionId) ?? []);
+
+    setMutedVoiceParticipantIds((current) =>
+      current.filter((sessionId) => activeParticipantIds.has(sessionId)),
+    );
+  }, [activeVoiceChannelId, voiceChannels]);
 
   useEffect(() => {
     setIsInfoPanelOpen(false);
@@ -566,6 +578,28 @@ function AppShell() {
     })();
   };
 
+  const handleToggleLocalAudioMute = () => {
+    const nextMuted = !isLocalAudioMuted;
+    voiceMeshRef.current?.setLocalAudioMuted(nextMuted);
+    setIsLocalAudioMuted(nextMuted);
+  };
+
+  const handleDisconnectVoice = () => {
+    if (!activeVoiceChannelId) {
+      return;
+    }
+
+    handleLeaveVoiceChannel(activeVoiceChannelId);
+  };
+
+  const handleToggleParticipantAudio = (sessionId: string) => {
+    const nextMuted = !mutedVoiceParticipantIds.includes(sessionId);
+    voiceMeshRef.current?.setRemoteAudioMuted(sessionId, nextMuted);
+    setMutedVoiceParticipantIds((current) =>
+      nextMuted ? [...current, sessionId] : current.filter((id) => id !== sessionId),
+    );
+  };
+
   return (
     <main className="relative h-screen min-h-screen h-[100dvh] overflow-hidden">
       <div
@@ -606,6 +640,8 @@ function AppShell() {
             presence={presence}
             voiceChannels={voiceChannels}
             activeVoiceChannelId={activeVoiceChannelId}
+            isLocalAudioMuted={isLocalAudioMuted}
+            mutedVoiceParticipantIds={mutedVoiceParticipantIds}
             typingBySessionId={typingBySessionId}
             messages={messages}
             activeReplyToMessageId={activeReplyToMessageId}
@@ -621,6 +657,9 @@ function AppShell() {
             onCreateVoiceChannel={handleCreateVoiceChannel}
             onJoinVoiceChannel={handleJoinVoiceChannel}
             onLeaveVoiceChannel={handleLeaveVoiceChannel}
+            onToggleLocalAudioMute={handleToggleLocalAudioMute}
+            onDisconnectVoice={handleDisconnectVoice}
+            onToggleParticipantAudio={handleToggleParticipantAudio}
             onSelectReply={setActiveReplyToMessageId}
             onClearReply={clearActiveReplyToMessageId}
             onToggleReaction={handleToggleReaction}
