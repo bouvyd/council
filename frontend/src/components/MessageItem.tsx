@@ -78,7 +78,7 @@ export function MessageItem({
   return (
     <li
       id={`message-${message.id}`}
-      className={`group border-l bg-surface px-[0.62rem] py-[0.55rem] transition-[border-color,box-shadow,background-color] duration-150 ease-in-out ${isSelf ? "ml-[0.5rem] border-l-[3px] border-message-line" : "border-l border-message-line"} ${isHighlighted ? " border-primary-bright bg-primary-soft-10" : ""} ${isSystemMessage ? "border-primary-bright bg-primary-soft-10" : ""}`.trim()}
+      className={`group border-l bg-surface px-[0.62rem] py-[0.55rem] transition-[border-color,box-shadow,background-color] duration-150 ease-in-out ${isSelf ? "border-l-[3px] border-message-line" : "border-l border-message-line"} ${isHighlighted ? " border-primary-bright bg-primary-soft-10" : ""} ${isSystemMessage ? "border-l-0 pl-0 bg-primary-soft-10" : ""}`.trim()}
       key={message.id}
     >
       {!isSystemMessage ? (

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RoomJoined } from "@council/shared";
 import { Navigate, Route, Routes, useMatch, useNavigate } from "react-router-dom";
 import { socket } from "./lib/socket";
@@ -76,7 +76,6 @@ function AppShell() {
     prepareRouteTarget,
     clearRouteTarget,
     setRouteIdentity,
-    applyRoomSuccess,
     applyCurrentUserDisplayName,
     clearRoomSession,
   } = useAppStore();
@@ -108,12 +107,12 @@ function AppShell() {
     }
   };
 
-  const handleRoomSuccess = (joined: RoomJoined) => {
+  const handleRoomSuccess = useCallback((joined: RoomJoined) => {
     saveRoomIdentity(joined.roomId, joined.user.displayName);
     useAppStore.getState().applyRoomSuccess(joined);
-  };
+  }, []);
 
-  const joinRoomById = async (name: string, roomId: string, mode: "push" | "replace" = "push") => {
+  const joinRoomById = useCallback(async (name: string, roomId: string, mode: "push" | "replace" = "push") => {
     setPendingJoinRoomId(roomId);
     setSubmitting(true);
     setError(null);
@@ -138,7 +137,7 @@ function AppShell() {
       useAppStore.getState().setError(message);
       useAppStore.getState().setSubmitting(false);
     }
-  };
+  }, [clearRouteTarget, handleRoomSuccess, navigate, setError, setPendingJoinRoomId, setSubmitting]);
 
   useEffect(() => {
     if (suppressRouteAutoJoinRef.current) {
@@ -187,7 +186,17 @@ function AppShell() {
         navigate("/", { replace: true });
       }
     })();
-  }, [routeRoomId, currentRoomId, clearRouteTarget, prepareRouteTarget, setIsNameModalOpen, setRouteIdentity]);
+  }, [
+    routeRoomId,
+    currentRoomId,
+    clearRouteTarget,
+    prepareRouteTarget,
+    setIsNameModalOpen,
+    setRouteIdentity,
+    joinRoomById,
+    navigate,
+    setError,
+  ]);
 
   useEffect(() => {
     const onPresence = useAppStore.getState().applyPresence;

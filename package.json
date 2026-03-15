@@ -12,10 +12,17 @@
     "dev:backend": "npm run dev --workspace @council/backend",
     "dev:frontend": "npm run dev --workspace @council/frontend",
     "build": "npm run build --workspace @council/backend && npm run build --workspace @council/frontend && npm run build --workspace @council/shared",
-    "check": "npm run check --workspace @council/backend && npm run check --workspace @council/frontend && npm run check --workspace @council/shared"
+    "check": "npm run check --workspace @council/backend && npm run check --workspace @council/frontend && npm run check --workspace @council/shared",
+    "lint": "npm run lint --workspace @council/backend && npm run lint --workspace @council/frontend && npm run lint --workspace @council/shared",
+    "lint:fix": "npm run lint:fix --workspace @council/backend && npm run lint:fix --workspace @council/frontend && npm run lint:fix --workspace @council/shared"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "concurrently": "^9.1.2",
-    "typescript": "^5.8.2"
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^17.4.0",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.57.0"
   }
 }
