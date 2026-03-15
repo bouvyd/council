@@ -151,3 +151,21 @@ input {
 	text-decoration: underline;
 	text-decoration-color: rgba(50, 255, 126, 0.38);
 }
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+    font-weight: bold;
+}
+.markdown-content h1 {
+    font-size: 1.5rem;
+}
+.markdown-content h2 {
+    font-size: 1.25rem;
+}
+.markdown-content h3 {
+    font-size: 1.1rem;
+}
