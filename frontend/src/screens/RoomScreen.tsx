@@ -25,7 +25,6 @@ type RoomScreenProps = {
   onRenameDisplayName: () => void;
   onCreateVoiceChannel: () => void;
   onJoinVoiceChannel: (channelId: string) => void;
-  onLeaveVoiceChannel: (channelId: string) => void;
   onToggleLocalAudioMute: () => void;
   onDisconnectVoice: () => void;
   onToggleParticipantAudio: (sessionId: string) => void;
@@ -65,7 +64,6 @@ export function RoomScreen({
   onRenameDisplayName,
   onCreateVoiceChannel,
   onJoinVoiceChannel,
-  onLeaveVoiceChannel,
   onToggleLocalAudioMute,
   onDisconnectVoice,
   onToggleParticipantAudio,
@@ -210,63 +208,104 @@ export function RoomScreen({
             <ul className="m-0 grid list-none gap-[0.4rem] p-0">
               {voiceChannels.map((channel) => {
                 const isJoined = activeVoiceChannelId === channel.channelId;
+                const orderedParticipants = [...channel.participants].sort((left, right) => {
+                  if (left.sessionId === currentUser?.sessionId) {
+                    return -1;
+                  }
+
+                  if (right.sessionId === currentUser?.sessionId) {
+                    return 1;
+                  }
+
+                  return 0;
+                });
+
                 return (
                   <li
                     key={channel.channelId}
-                    className={`rounded-[var(--radius)] border px-[0.5rem] py-[0.42rem] ${isJoined ? "border-primary-bright bg-primary-soft-10" : "border-presence-border bg-surface-muted"}`}
+                    className={`rounded-[var(--radius)] border px-[0.5rem] py-[0.42rem] ${isJoined ? "border-primary-bright bg-primary-soft-10" : "border-presence-border bg-surface-muted transition-colors hover:border-primary hover:bg-surface-control/60"}`}
                   >
-                    <div className="flex items-center justify-between gap-[0.45rem]">
-                      <span className="text-[0.9rem] text-text">
-                        {channel.name}
-                        {channel.isDefault ? <span className="ml-[0.3rem] text-text-muted">(default)</span> : null}
-                      </span>
-                      <span className="text-[0.8rem] text-text-muted">{channel.participants.length}/6</span>
-                    </div>
-                    <div className="mt-[0.32rem] flex flex-wrap items-center gap-[0.35rem]">
-                      {channel.participants.map((participant) => {
-                        const isParticipantMuted = mutedVoiceParticipantIds.includes(participant.sessionId);
-                        const canToggleParticipantAudio = isJoined && participant.sessionId !== currentUser?.sessionId;
-
-                        return canToggleParticipantAudio ? (
-                          <button
-                            key={participant.sessionId}
-                            className={`cursor-pointer rounded-[var(--radius)] border border-control-border px-[0.32rem] py-[0.08rem] text-[0.72rem] ${isParticipantMuted ? "bg-surface-muted text-text-muted line-through" : "bg-surface-control text-text-muted hover:border-primary hover:text-primary-bright"}`}
-                            type="button"
-                            onClick={() => onToggleParticipantAudio(participant.sessionId)}
-                            aria-pressed={isParticipantMuted}
-                            title={isParticipantMuted ? "Unmute participant" : "Mute participant"}
-                          >
-                            {participant.displayName}
-                          </button>
-                        ) : (
-                          <span
-                            className={`rounded-[var(--radius)] border border-control-border px-[0.32rem] py-[0.08rem] text-[0.72rem] ${isParticipantMuted ? "bg-surface-muted text-text-muted line-through" : "bg-surface-control text-text-muted"}`}
-                            key={participant.sessionId}
-                          >
-                            {participant.displayName}
+                    {isJoined ? (
+                      <>
+                        <div className="flex items-center justify-between gap-[0.45rem]">
+                          <span className="text-[0.9rem] text-text">
+                            {channel.name}
+                            {channel.isDefault ? <span className="ml-[0.3rem] text-text-muted">(default)</span> : null}
                           </span>
-                        );
-                      })}
-                    </div>
-                    <div className="mt-[0.4rem]">
-                      {isJoined ? (
-                        <button
-                          className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.45rem] py-[0.2rem] text-[0.8rem] text-text-muted hover:border-primary hover:text-primary-bright"
-                          type="button"
-                          onClick={() => onLeaveVoiceChannel(channel.channelId)}
-                        >
-                          leave voice
-                        </button>
-                      ) : (
-                        <button
-                          className="cursor-pointer rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.45rem] py-[0.2rem] text-[0.8rem] text-text-muted hover:border-primary hover:text-primary-bright"
-                          type="button"
-                          onClick={() => onJoinVoiceChannel(channel.channelId)}
-                        >
-                          join voice
-                        </button>
-                      )}
-                    </div>
+                          <span className="text-[0.8rem] text-text-muted">{channel.participants.length}/6</span>
+                        </div>
+                        <div className="mt-[0.32rem] flex flex-wrap items-center gap-[0.35rem]">
+                          {orderedParticipants.map((participant) => {
+                            const isCurrentUser = participant.sessionId === currentUser?.sessionId;
+                            const isParticipantMuted = isCurrentUser
+                              ? isLocalAudioMuted
+                              : mutedVoiceParticipantIds.includes(participant.sessionId);
+                            const canToggleParticipantAudio = isJoined;
+                            const baseParticipantClass = `rounded-[var(--radius)] border border-control-border px-[0.32rem] py-[0.08rem] text-[0.72rem] ${isParticipantMuted ? "bg-surface-muted text-text-muted line-through opacity-80" : "bg-surface-control text-text-muted"}`;
+
+                            return canToggleParticipantAudio ? (
+                              <button
+                                key={participant.sessionId}
+                                className={`${baseParticipantClass} cursor-pointer hover:border-primary hover:text-primary-bright`}
+                                type="button"
+                                onClick={() => {
+                                  if (isCurrentUser) {
+                                    onToggleLocalAudioMute();
+                                    return;
+                                  }
+
+                                  onToggleParticipantAudio(participant.sessionId);
+                                }}
+                                aria-pressed={isParticipantMuted}
+                                title={
+                                  isCurrentUser
+                                    ? isParticipantMuted
+                                      ? "Unmute yourself"
+                                      : "Mute yourself"
+                                    : isParticipantMuted
+                                      ? "Unmute participant"
+                                      : "Mute participant"
+                                }
+                              >
+                                {participant.displayName}
+                              </button>
+                            ) : (
+                              <span
+                                className={baseParticipantClass}
+                                key={participant.sessionId}
+                              >
+                                {participant.displayName}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <button
+                        className="block w-full cursor-pointer text-left"
+                        type="button"
+                        onClick={() => onJoinVoiceChannel(channel.channelId)}
+                        aria-label={`Join ${channel.name}`}
+                      >
+                        <div className="flex items-center justify-between gap-[0.45rem]">
+                          <span className="text-[0.9rem] text-text">
+                            {channel.name}
+                            {channel.isDefault ? <span className="ml-[0.3rem] text-text-muted">(default)</span> : null}
+                          </span>
+                          <span className="text-[0.8rem] text-text-muted">{channel.participants.length}/6</span>
+                        </div>
+                        <div className="mt-[0.32rem] flex flex-wrap items-center gap-[0.35rem]">
+                          {orderedParticipants.map((participant) => (
+                            <span
+                              className="rounded-[var(--radius)] border border-control-border bg-surface-control px-[0.32rem] py-[0.08rem] text-[0.72rem] text-text-muted"
+                              key={participant.sessionId}
+                            >
+                              {participant.displayName}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    )}
                   </li>
                 );
               })}

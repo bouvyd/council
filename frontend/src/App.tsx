@@ -656,7 +656,6 @@ function AppShell() {
             onRenameDisplayName={openRenameModal}
             onCreateVoiceChannel={handleCreateVoiceChannel}
             onJoinVoiceChannel={handleJoinVoiceChannel}
-            onLeaveVoiceChannel={handleLeaveVoiceChannel}
             onToggleLocalAudioMute={handleToggleLocalAudioMute}
             onDisconnectVoice={handleDisconnectVoice}
             onToggleParticipantAudio={handleToggleParticipantAudio}
